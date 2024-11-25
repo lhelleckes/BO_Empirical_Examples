@@ -32,8 +32,7 @@ def ratkowsky_curve(T, T_min=5, T_max=70, b=0.1, c=0.0002):
     - The model combines a quadratic term and an exponential decay term.
     """
     k = b * (T - T_min) ** 2 * (1 - np.exp(c * (T - T_max)))
-    k = np.where(T < T_min, 0, k)  # Set rates to zero for T < T_min
-    k = np.where(T > T_max, 0, k)  # Set rates to zero for T < T_min
+    k = np.where((T < T_min) | (T > T_max), 0, k)
     return k
 
 
