@@ -42,6 +42,7 @@ def get_P_samples(
     S0: float = 100,
     time: np.ndarray = np.arange(0, 13, 2),
     sigma: float = 5,
+    seed: int = None
 ) -> dict:
     """
     Computes product concentrations for given reaction rate and initial
@@ -57,6 +58,8 @@ def get_P_samples(
         time points for measurements
     sigma : float
         std for Gaussian noise
+    seed : integer (optional)
+        Set a seed for noise generation
 
     Returns
     -------
@@ -66,7 +69,8 @@ def get_P_samples(
     if not (type(k) == float or type(k) == np.float64):
         raise ValueError(f"Expected float but got {type(k)} for k.")
     P_exact = S0 * (1 - np.exp(-k * time))  # Exact product formation
-    noise = np.random.normal(
+    rng = np.random.RandomState(seed)
+    noise = rng.normal(
         0, sigma, size=len(P_exact)
     )  # Gaussian noise, std dev = 5 mM
     P_noisy = np.clip(
