@@ -1,4 +1,9 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import ipywidgets as widgets
+from ipywidgets import VBox, HBox, interactive_output
+from typing import Callable, Dict
+from IPython.display import display
 
 
 def ratkowsky_curve(T, T_min=5, T_max=70, b=0.1, c=0.0002):
@@ -41,7 +46,7 @@ def get_P_samples(
     S0: float = 100,
     time: np.ndarray = np.arange(0, 13, 2),
     sigma: float = 5,
-    seed: int = None
+    seed: int = None,
 ) -> dict:
     """
     Computes product concentrations for given reaction rate and initial
@@ -69,9 +74,7 @@ def get_P_samples(
         raise ValueError(f"Expected float but got {type(k)} for k.")
     P_exact = S0 * (1 - np.exp(-k * time))  # Exact product formation
     rng = np.random.RandomState(seed)
-    noise = rng.normal(
-        0, sigma, size=len(P_exact)
-    )  # Gaussian noise, std dev = 5 mM
+    noise = rng.normal(0, sigma, size=len(P_exact))  # Gaussian noise, std dev = 5 mM
     P_noisy = np.clip(
         P_exact + noise, 0, None
     )  # Add noise and clip to ensure non-negative
@@ -101,3 +104,32 @@ def extract_high_res_P_series(time: np.ndarray, k: float, S0: float = 100):
     t_res = np.linspace(min(time), max(time), 200)
     P_res = S0 * (1 - np.exp(-k * t_res))
     return (t_res, P_res)
+
+
+# Create sliders for parameters with value labels enabled
+def create_slider(min_val, max_val, step, value, description):
+    return widgets.FloatSlider(
+        min=min_val,
+        max=max_val,
+        step=step,
+        value=value,
+        description=description,
+        style={"description_width": "initial"},
+    )
+
+
+def get_slider_values(sliders):
+    """
+    Extract current values from the sliders.
+
+    Parameters
+    ----------
+    sliders : dict
+        A dictionary of slider widgets.
+
+    Returns
+    -------
+    dict
+        Dictionary of current slider values.
+    """
+    return {key: slider.value for key, slider in sliders.items()}
