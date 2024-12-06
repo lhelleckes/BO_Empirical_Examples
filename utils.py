@@ -1,9 +1,14 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import ipywidgets as widgets
-from ipywidgets import VBox, HBox, interactive_output
 from typing import Callable, Dict, Optional
+
+import ipywidgets as widgets
+import matplotlib.pyplot as plt
+import numpy as np
 from IPython.display import display
+from ipywidgets import HBox, VBox, interactive_output
+from scipy.stats.qmc import Sobol
+
+SEED = 12345
+np.random.seed(SEED)
 
 
 def ratkowsky_curve(T, T_min=5, T_max=70, b=0.1, c=0.0002):
@@ -134,6 +139,7 @@ def get_slider_values(sliders):
     """
     return {key: slider.value for key, slider in sliders.items()}
 
+
 def heteroskedastic_noise(
     x: np.ndarray,
     sigma_0: float = 0.03,
@@ -235,7 +241,34 @@ def generate_noisy_observations(
     if np.any(negative_indices):
         # Scale replacement values based on local noise properties
         scale = np.maximum(np.std(noise[negative_indices]), max_noise / 2)
-        replacement_values = np.abs(np.random.normal(loc=0, scale=scale, size=np.sum(negative_indices)))
+        replacement_values = np.abs(
+            np.random.normal(loc=0, scale=scale, size=np.sum(negative_indices))
+        )
         y_noisy[negative_indices] = replacement_values
 
     return y_noisy
+
+
+def generate_sobol_points(
+    num_points: int, range_min: float, range_max: float
+) -> np.ndarray:
+    """
+    Generate Sobol sequence points within a specified range.
+
+    Parameters
+    ----------
+    num_points : int
+        Number of points to generate.
+    range_min : float
+        Minimum value of the range.
+    range_max : float
+        Maximum value of the range.
+
+    Returns
+    -------
+    np.ndarray
+        Sobol points scaled to the specified range.
+    """
+    sobol = Sobol(d=1, scramble=True)
+    points = sobol.random_base2(m=int(np.log2(num_points)))
+    return range_min + points.flatten() * (range_max - range_min)
