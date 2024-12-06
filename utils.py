@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ipywidgets as widgets
 from ipywidgets import VBox, HBox, interactive_output
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 from IPython.display import display
 
 
@@ -133,3 +133,109 @@ def get_slider_values(sliders):
         Dictionary of current slider values.
     """
     return {key: slider.value for key, slider in sliders.items()}
+
+def heteroskedastic_noise(
+    x: np.ndarray,
+    sigma_0: float = 0.03,
+    sigma_1: float = 0.1,
+    max_noise: float = 0.4,
+) -> np.ndarray:
+    """
+    Generate heteroskedastic noise using a polynomial variance structure,
+    agnostic to the range of x-values.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input values.
+    sigma_0 : float
+        Base noise level.
+    sigma_1 : float
+        Coefficient for quadratic term.
+    max_noise : float
+        Maximum allowable noise.
+
+    Returns
+    -------
+    np.ndarray
+        Heteroskedastic noise values for each input value.
+    """
+    # Normalize x to [0, 1]
+    x_norm = (x - np.min(x)) / (np.max(x) - np.min(x))
+
+    def polynomial_variance(x_norm: np.ndarray) -> np.ndarray:
+        return sigma_0 + sigma_1 * x_norm**2
+
+    # Compute standard deviation
+    std_dev = np.clip(polynomial_variance(x_norm), 0, max_noise)
+
+    noise = np.random.normal(loc=0, scale=std_dev)
+
+    return noise
+
+
+def generate_noisy_observations(
+    x: np.ndarray,
+    truth_fn: Callable[[np.ndarray, Dict[str, float]], np.ndarray],
+    noise_fn: Callable[[np.ndarray, float, float, float], np.ndarray],
+    truth_params: Dict[str, float],
+    sigma_0: Optional[float] = None,
+    sigma_1: Optional[float] = None,
+    max_noise: Optional[float] = None,
+    noise_params: Optional[Dict[str, float]] = None,
+) -> np.ndarray:
+    """
+    Generate noisy observations from a ground truth function and noise function,
+    replacing negative values with values from a half-normal distribution.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input values.
+    truth_fn : Callable
+        Ground truth function to compute true values. Accepts `x` and `truth_params`.
+    noise_fn : Callable
+        Function to generate heteroskedastic noise.
+    truth_params : Dict[str, float]
+        Parameters for the ground truth function.
+    sigma_0 : float, optional
+        Base noise level (default is None).
+    sigma_1 : float, optional
+        Coefficient for the quadratic term in the noise function (default is None).
+    max_noise : float, optional
+        Maximum allowable noise level (default is None).
+    noise_params : Dict[str, float], optional
+        Dictionary of noise parameters containing `sigma_0`, `sigma_1`, and `max_noise`.
+        Overrides individual parameters if provided.
+
+    Returns
+    -------
+    np.ndarray
+        Noisy observations with non-negative values.
+    """
+    # Extract noise parameters from `noise_params` if provided
+    if noise_params:
+        sigma_0 = noise_params.get("sigma_0", sigma_0)
+        sigma_1 = noise_params.get("sigma_1", sigma_1)
+        max_noise = noise_params.get("max_noise", max_noise)
+
+    # Ensure all parameters are set
+    if sigma_0 is None or sigma_1 is None or max_noise is None:
+        raise ValueError(
+            "Noise parameters must be provided either individually or in `noise_params`."
+        )
+
+    # Compute ground truth and noise
+    y_true = truth_fn(x, **truth_params)
+    noise = noise_fn(x, sigma_0, sigma_1, max_noise)
+    y_noisy = y_true + noise
+
+    # Replace negative values with half-normal samples
+    negative_indices = y_noisy < 0
+    if np.any(negative_indices):
+        # Scale replacement values based on local noise properties
+        scale = np.maximum(np.std(noise[negative_indices]), max_noise / 2)
+        replacement_values = np.abs(np.random.normal(loc=0, scale=scale, size=np.sum(negative_indices)))
+        y_noisy[negative_indices] = replacement_values
+
+    return y_noisy
