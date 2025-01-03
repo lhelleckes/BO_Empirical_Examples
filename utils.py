@@ -400,6 +400,7 @@ def heteroskedastic_noise(
 
 def symmetric_noise(
     x: np.ndarray,
+    bounds: Tuple[float, float],
     sigma_0: float = 0.03,
     sigma_1: float = 0.1,
     max_noise: float = 0.4,
@@ -413,6 +414,8 @@ def symmetric_noise(
     ----------
     x : np.ndarray
         Input values.
+    bounds : Tuple[float, float]
+        Lower and upper bounds of the parameter space.
     sigma_0 : float
         Minimum noise level at the center.
     sigma_1 : float
@@ -428,7 +431,7 @@ def symmetric_noise(
         Symmetric noise values for each input value.
     """
     # Normalize x to [0, 1]
-    x_norm = (x - np.min(x)) / (np.max(x) - np.min(x))
+    x_norm = (x - bounds[0]) / (bounds[1] - bounds[0])
 
     def pol_variance(x_norm: np.ndarray) -> np.ndarray:
         return sigma_0 + sigma_1 * np.abs(2 * x_norm - 1)
@@ -443,6 +446,7 @@ def symmetric_noise(
 
 def generate_noisy_observations(
     x: np.ndarray,
+    bounds: Tuple[float, float],
     truth_fn: Callable[
         [np.ndarray, List[Dict[str, float]]], Tuple[np.ndarray, List[np.ndarray]]
     ],
@@ -505,9 +509,8 @@ def generate_noisy_observations(
 
     # Compute ground truth
     y_true, _ = truth_fn(x, truth_params)
-
     # Compute heteroskedastic noise
-    noise = noise_fn(x, sigma_0, sigma_1, max_noise, seed)
+    noise = noise_fn(x, bounds, sigma_0, sigma_1, max_noise, seed)
     y_noisy = y_true + noise
 
     # Replace negative values with half-normal samples
@@ -583,7 +586,7 @@ def plot_symmetric_noise(
 
 
 def generate_sobol_points(
-    num_points: int, range_min: float, range_max: float, seed: int = None
+    num_points: int, bounds: tuple, seed: int = None
 ) -> np.ndarray:
     """
     Generate Sobol sequence points within a specified range.
@@ -592,10 +595,8 @@ def generate_sobol_points(
     ----------
     num_points : int
         Number of points to generate.
-    range_min : float
-        Minimum value of the range.
-    range_max : float
-        Maximum value of the range.
+    bounds : Tuple[float, float]
+        Bounds of the parameter space.
     seed : int, optional
         Random seed for reproducibility.
 
@@ -604,8 +605,8 @@ def generate_sobol_points(
     np.ndarray
         Sobol points scaled to the specified range.
     """
-    range_min = np.atleast_1d(range_min)
-    range_max = np.atleast_1d(range_max)
+    range_min = np.atleast_1d(bounds[0])
+    range_max = np.atleast_1d(bounds[1])
 
     dimensions = len(range_min)
 
