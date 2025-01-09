@@ -91,6 +91,15 @@ def get_P_samples(
     return P_noisy
 
 
+class Colors:
+
+    light_red = np.array((223, 83, 62)) / 255
+    light_blue = np.array((69, 145, 247)) / 255
+    dark_red = np.array((122, 25, 24)) / 255
+    dark_blue = np.array((0, 0, 255)) / 255
+    alt_blue = np.array((59, 117, 175)) / 255
+
+
 def extract_high_res_P_series(time: np.ndarray, k: float, S0: float = 100):
     """
     Computes the exact and high-resolution time series for a given k.
@@ -293,9 +302,9 @@ def enzyme_truth(pH, enzyme_params):
     np.ndarray
         Total reaction rate and individual rates for each enzyme.
     """
-    S = 1.0  # Fixed substrate concentration
+    S = 15.0  # Fixed substrate concentration # TODO: Revaluate substrate and enzyme concentrations
 
-    # Compute rates dynamically for all enzymes
+    # Compute rates for all enzymes
     rates = [
         compute_rate(
             S,
@@ -334,7 +343,7 @@ def plot_enzyme_truth(pH_range, enzyme_params):
 
     # Formatting
     plt.xlabel("pH")
-    plt.ylabel("Reaction Rate")
+    plt.ylabel("Reaction Rate [μM min$^{-1}$]")
     plt.grid()
     plt.legend()
     plt.show()
