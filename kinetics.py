@@ -102,9 +102,9 @@ def enzyme_truth(pH, enzyme_params):
 
     # Compute rates for all enzymes
     rates = [
-        compute_rate(
+        michaelis_menten_rate(
             S,
-            gaussian_vmax(pH, params["Vmax"], params["pH_opt"], params["sigma"]),
+            gaussian_vmax_pH(pH, params["Vmax"], params["pH_opt"], params["sigma"]),
             params["Km"],
         )
         for params in enzyme_params
