@@ -37,7 +37,7 @@ def ratkowsky_curve(T, T_min=5, T_max=70, b=0.1, c=0.0002):
     return k
 
 
-def gaussian_vmax(pH, Vmax_base, pH_opt, sigma):
+def gaussian_vmax_pH(pH, Vmax_base, pH_opt, sigma):
     """
     Gaussian-like model for Vmax dependence on pH.
 
@@ -60,7 +60,7 @@ def gaussian_vmax(pH, Vmax_base, pH_opt, sigma):
     return Vmax_base * numpy.exp(-((pH - pH_opt) ** 2) / (2 * sigma**2))
 
 
-def compute_rate(S, Vmax, Km):
+def michaelis_menten_rate(S, Vmax, Km):
     """
     Compute the Michaelis-Menten reaction rate.
 

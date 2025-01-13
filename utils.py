@@ -34,7 +34,7 @@ def get_P_samples(
         raise ValueError(f"Expected float but got {type(k)} for k.")
     P_exact = S0 * (1 - numpy.exp(-k * time))  # Exact product formation
     rng = numpy.random.RandomState(seed)
-    noise = rng.normal(0, sigma, size=len(P_exact))  # Gaussian noise, std dev = 5 mM
+    noise = rng.normal(0, sigma, size=len(P_exact))
     P_noisy = numpy.clip(P_exact + noise, 0, None)  # Add noise and clip to ensure non-negative
     return P_noisy
 

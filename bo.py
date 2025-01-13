@@ -53,7 +53,6 @@ def generate_noisy_observations(
         Noisy observations with non-negative values.
     """
     # Consolidate noise parameters
-
     required_params = ["sigma_0", "sigma_1", "max_noise"]
     for param in required_params:
         if param not in noise_params:
