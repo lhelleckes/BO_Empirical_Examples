@@ -107,7 +107,7 @@ def plot_enzyme_truth(pH_range, enzyme_params):
 
     # Formatting
     matplotlib.pyplot.xlabel("pH")
-    matplotlib.pyplot.ylabel("Reaction Rate [μM min$^{-1}$]")
+    matplotlib.pyplot.ylabel("Reaction Rate [U mL$^{-1}$]")
     matplotlib.pyplot.grid()
     matplotlib.pyplot.legend()
     matplotlib.pyplot.show()
@@ -331,7 +331,8 @@ def plot_gp_fit(
         train_y.numpy(),
         color=Colors.dark_blue,
         label="Training Data",
-        s=100,
+        s=80,
+        zorder=10,
     )
     # we might want to highlight the lastest observation
     if highlight_points:
@@ -340,8 +341,9 @@ def plot_gp_fit(
                 [x],
                 [y],
                 color="orange",
-                s=150,
+                s=100,
                 label="Latest Observation",
+                zorder=20,
             )
 
     # Highlight proposed experiment
