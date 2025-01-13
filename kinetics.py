@@ -98,7 +98,7 @@ def enzyme_truth(pH, enzyme_params):
     numpy.ndarray
         Total reaction rate and individual rates for each enzyme.
     """
-    S = 15.0  # Fixed substrate concentration # TODO: Revaluate substrate and enzyme concentrations
+    S = 1500.0  # Fixed substrate concentration in mM
 
     # Compute rates for all enzymes
     rates = [
