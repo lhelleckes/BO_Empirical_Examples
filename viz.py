@@ -1,18 +1,12 @@
+import typing
+
+import ipywidgets
+import matplotlib.pyplot
 import numpy
 import torch
-import matplotlib.pyplot
-import typing
-import ipywidgets
 
-from kinetics import (
-    enzyme_truth,
-    symmetric_noise,
-)
-
-from bo import (
-    fit_gp_model,
-    generate_noisy_observations,
-)
+from bo import fit_gp_model, generate_noisy_observations
+from kinetics import enzyme_truth, symmetric_noise
 
 
 class Colors:
@@ -114,7 +108,6 @@ def plot_enzyme_truth(pH_range, enzyme_params):
 
 
 def plot_noisy_samples(sigma_0, sigma_1, max_noise, bounds, enzyme_params, seed=None):
-
     x = numpy.linspace(bounds[0], bounds[1], 500)
 
     y_noisy = generate_noisy_observations(
@@ -185,7 +178,6 @@ def create_enzyme_widgets(config):
     widgets_dict = {}
 
     for enzyme, params in config.items():
-
         sliders = {
             param: create_slider(**params[param], description=f"{param} ({enzyme})")
             for param in params
@@ -325,7 +317,6 @@ def plot_gp_fit(
             color=Colors.light_blue,
             linewidth=2,
         )
-
     ax.scatter(
         train_x.numpy(),
         train_y.numpy(),
@@ -348,13 +339,16 @@ def plot_gp_fit(
 
     # Highlight proposed experiment
     if proposed_experiment is not None:
-        ax.axvline(
-            proposed_experiment,
-            color="red",
-            linestyle="--",
-            linewidth=2,
-            label="Proposed Experiment",
-        )
+        proposed_experiment = proposed_experiment.numpy()
+
+        for exp in proposed_experiment:
+            ax.axvline(
+                x=exp,
+                color="red",
+                linestyle="--",
+                linewidth=2,
+                label="Proposed Experiment",
+            )
 
     ax.plot(
         x_test.numpy(),
@@ -415,13 +409,17 @@ def plot_acquisition_function(
         color=Colors.alt_blue,
         label="Acquisition Value" if show_legend else None,
     )
-    ax.axvline(
-        x=candidates.item(),
-        color="red",
-        linestyle="--",
-        linewidth=2,
-        label="Proposed Candidate" if show_legend else None,
-    )
+
+    candidates = candidates.numpy()
+
+    for candidate in candidates:
+        ax.axvline(
+            x=candidate,
+            color="red",
+            linestyle="--",
+            linewidth=2,
+            label="Proposed Candidate" if show_legend else None,
+        )
     if title:
         ax.set_title(title)
     ax.set_ylabel(ylabel)
@@ -479,9 +477,14 @@ def plot_combined_gp_and_acquisition_from_results(
         # Highlight the latest observation for the current round
         highlight_points = None
         if round_idx > 0:
-            latest_x = train_x_per_round[round_idx][-1].item()
-            latest_y = train_y_per_round[round_idx][-1].item()
-            highlight_points = [(latest_x, latest_y)]
+            latest_candidates = train_x_per_round[round_idx][-len(candidates_per_round[round_idx]) :]
+            latest_observation = train_y_per_round[round_idx][
+                -len(candidates_per_round[round_idx]) :
+            ]
+
+            highlight_points = [
+                (x.item(), y.item()) for x, y in zip(latest_candidates, latest_observation)
+            ]
 
         # GP plot
         plot_gp_fit(
@@ -512,7 +515,6 @@ def plot_combined_gp_and_acquisition_from_results(
             show_legend=False,
         )
 
-    matplotlib.pyplot.tight_layout()
     matplotlib.pyplot.show()
 
 
@@ -565,5 +567,4 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             show_legend=False,
         )
 
-    matplotlib.pyplot.tight_layout()
     matplotlib.pyplot.show()
