@@ -1,16 +1,12 @@
-import numpy
 import typing
-import torch
 
 import botorch
 import gpytorch
-
+import numpy
 import scipy
+import torch
 
-from kinetics import (
-    enzyme_truth,
-    symmetric_noise,
-)
+from kinetics import enzyme_truth, symmetric_noise
 
 
 def generate_noisy_observations(
@@ -162,7 +158,7 @@ class EnzymeGP(botorch.models.SingleTaskGP):
         super().__init__(
             train_x,
             train_y,
-            outcome_transform=botorch.models.transforms.Standardize(m=train_x.shape[-1]),
+            outcome_transform=botorch.models.transforms.Standardize(m=train_y.shape[-1]),
         )
 
         self.mean_module = mean_module if mean_module else gpytorch.means.ConstantMean()
@@ -176,7 +172,8 @@ class EnzymeGP(botorch.models.SingleTaskGP):
                 gpytorch.kernels.RBFKernel(
                     lengthscale_prior=gpytorch.priors.LogNormalPrior(
                         loc=numpy.log(numpy.abs(bounds[0] - bounds[1])) / 3, scale=0.5
-                    )
+                    ),
+                    lengthscale_constraint=gpytorch.constraints.Interval(1e-2, 1e2),
                 )
             )
         )
