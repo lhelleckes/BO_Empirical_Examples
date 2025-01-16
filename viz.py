@@ -347,13 +347,12 @@ def plot_gp_fit(
                 color="red",
                 linestyle="--",
                 linewidth=2,
-                label="Proposed Experiment",
             )
 
     ax.plot(
         x_test.numpy(),
         mean,
-        label="GP Prediction",
+        label="GP Mean",
         color=Colors.dark_red,
         linewidth=2,
     )
@@ -418,7 +417,7 @@ def plot_acquisition_function(
             color="red",
             linestyle="--",
             linewidth=2,
-            label="Proposed Candidate" if show_legend else None,
+            label="Proposed Experiment" if show_legend else None,
         )
     if title:
         ax.set_title(title)
@@ -555,7 +554,7 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             title=f"Round {round_idx + 1} - GP Model",
             ylabel="Reaction Rate",
             xlabel=None,
-            show_legend=False,
+            show_legend=(idx == 1),  # Show legend only once
         )
 
         # Acquisition function plot
@@ -564,7 +563,8 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             candidates=candidates_per_round[round_idx],
             bounds=bounds,
             ax=acq_ax,
-            show_legend=False,
+            show_legend=(idx == 0),  # Show legend only once
         )
 
+    matplotlib.pyplot.savefig("simple_example.png")
     matplotlib.pyplot.show()
