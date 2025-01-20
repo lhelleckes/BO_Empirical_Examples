@@ -336,6 +336,16 @@ def plot_gp_fit(
                 label="Latest Observation",
                 zorder=20,
             )
+    else:
+        # dummy point for legend
+        ax.scatter(
+            [],
+            [],
+            color="orange",
+            s=100,
+            label="Latest Observation",
+            zorder=20,
+        )
 
     # Highlight proposed experiment
     if proposed_experiment is not None:
@@ -554,7 +564,7 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             title=f"Round {round_idx + 1} - GP Model",
             ylabel="Reaction Rate",
             xlabel=None,
-            show_legend=(idx == 1),  # Show legend only once
+            show_legend=(idx == 0),  # Show legend only once
         )
 
         # Acquisition function plot
