@@ -371,7 +371,7 @@ def plot_gp_fit(
     ax.set_ylabel(ylabel)
 
     if show_legend:
-        ax.legend()
+        ax.legend(loc="lower center", bbox_to_anchor=(0.6,0))
 
     if ax is None:
         matplotlib.pyplot.show()
@@ -474,6 +474,7 @@ def plot_combined_gp_and_acquisition_from_results(
         2,
         figsize=(12, num_rounds * 2.5),
         gridspec_kw={"wspace": 0.3, "hspace": 0.6},
+        dpi=800,
     )
 
     # Ensure axes is a 2D array even if num_rounds == 1
@@ -507,7 +508,7 @@ def plot_combined_gp_and_acquisition_from_results(
             proposed_experiment=candidates_per_round[round_idx],
             ax=gp_ax,
             title=f"Round {round_idx + 1} - GP Model",
-            ylabel="Reaction Rate",
+            ylabel="Reaction Rate [U mL$^{-1}$]",
             xlabel="pH [-]",  # X-axis label for every plot
             show_legend=False,
         )
@@ -536,7 +537,7 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
 
     num_selected = len(selected_rounds)
     fig, axes = matplotlib.pyplot.subplots(
-        num_selected * 2, 1, figsize=(8, num_selected * 7.5), gridspec_kw={"hspace": 0.3}
+        num_selected * 2, 1, figsize=(8, num_selected * 7.5), gridspec_kw={"hspace": 0.3}, dpi=800,
     )
     axes = axes if num_selected > 1 else [axes]  # Handle single-row case
 
@@ -562,7 +563,7 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             proposed_experiment=candidates_per_round[round_idx],
             ax=gp_ax,
             title=f"Round {round_idx + 1} - GP Model",
-            ylabel="Reaction Rate",
+            ylabel="Reaction Rate [U mL$^{-1}$]",
             xlabel=None,
             show_legend=(idx == 0),  # Show legend only once
         )
@@ -576,5 +577,5 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             show_legend=(idx == 0),  # Show legend only once
         )
 
-    matplotlib.pyplot.savefig("simple_example.png")
+    matplotlib.pyplot.savefig("simple_example.pdf")
     matplotlib.pyplot.show()
