@@ -251,7 +251,7 @@ def plot_gp_fit(
     highlight_points=None,
     proposed_experiment=None,
     ax=None,
-    title="GP Fit",
+    title="GP fit",
     ylabel="Output",
     xlabel="Input",
     show_legend=True,
@@ -304,7 +304,7 @@ def plot_gp_fit(
         lower,
         upper,
         color=Colors.light_red,
-        label="Confidence Interval",
+        label="Confidence tube",
     )
 
     if ground_truth_fn and ground_truth_params:
@@ -313,7 +313,7 @@ def plot_gp_fit(
         ax.plot(
             x_ground_truth,
             y_ground_truth,
-            label="Ground Truth",
+            label="True generating function",
             color=Colors.light_blue,
             linewidth=2,
         )
@@ -321,7 +321,7 @@ def plot_gp_fit(
         train_x.numpy(),
         train_y.numpy(),
         color=Colors.dark_blue,
-        label="Training Data",
+        label="Training data",
         s=80,
         zorder=10,
     )
@@ -333,7 +333,7 @@ def plot_gp_fit(
                 [y],
                 color="orange",
                 s=100,
-                label="Latest Observation",
+                label="Latest observation",
                 zorder=20,
             )
     else:
@@ -343,7 +343,7 @@ def plot_gp_fit(
             [],
             color="orange",
             s=100,
-            label="Latest Observation",
+            label="Latest observation",
             zorder=20,
         )
 
@@ -362,7 +362,7 @@ def plot_gp_fit(
     ax.plot(
         x_test.numpy(),
         mean,
-        label="GP Mean",
+        label="GP mean",
         color=Colors.dark_red,
         linewidth=2,
     )
@@ -371,7 +371,22 @@ def plot_gp_fit(
     ax.set_ylabel(ylabel)
 
     if show_legend:
-        ax.legend(loc="lower center", bbox_to_anchor=(0.6,0))
+        # manually order legend items
+        handles, labels = ax.get_legend_handles_labels()
+        laber_order = [
+            "True generating function",
+            "Training data",
+            "Latest observation",
+            "GP mean",
+            "Confidence tube",
+        ]
+
+        odered_handles_labels = sorted(
+            zip(handles, labels), key=lambda x: laber_order.index(x[1])
+        )
+        ordered_handles, ordered_labels = zip(*odered_handles_labels)
+
+        ax.legend(ordered_handles, ordered_labels, loc="lower center", bbox_to_anchor=(0.58,0))
 
     if ax is None:
         matplotlib.pyplot.show()
@@ -383,7 +398,7 @@ def plot_acquisition_function(
     bounds,
     ax,
     title=None,
-    ylabel="Acquisition Value",
+    ylabel="Acquisition function",
     xlabel="pH [-]",
     show_legend=True,
 ):
@@ -416,7 +431,7 @@ def plot_acquisition_function(
         x_test.squeeze(-1).numpy(),
         acquisition_values,
         color=Colors.alt_blue,
-        label="Acquisition Value" if show_legend else None,
+        label="Acquisition function" if show_legend else None,
     )
 
     candidates = candidates.numpy()
@@ -427,7 +442,7 @@ def plot_acquisition_function(
             color="red",
             linestyle="--",
             linewidth=2,
-            label="Proposed Experiment" if show_legend else None,
+            label="Proposed experiment" if show_legend else None,
         )
     if title:
         ax.set_title(title)
@@ -508,7 +523,7 @@ def plot_combined_gp_and_acquisition_from_results(
             proposed_experiment=candidates_per_round[round_idx],
             ax=gp_ax,
             title=f"Round {round_idx + 1} - GP Model",
-            ylabel="Reaction Rate [U mL$^{-1}$]",
+            ylabel="Reaction rate [U mL$^{-1}$]",
             xlabel="pH [-]",  # X-axis label for every plot
             show_legend=False,
         )
@@ -519,8 +534,8 @@ def plot_combined_gp_and_acquisition_from_results(
             candidates=candidates_per_round[round_idx],
             bounds=bounds,
             ax=acq_ax,
-            title="Acquisition Function",
-            ylabel="Acquisition Value",
+            title="Acquisition function",
+            ylabel="Acquisition function",
             xlabel="pH [-]",  # X-axis label for every plot
             show_legend=False,
         )
@@ -562,8 +577,8 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             highlight_points=highlight_points,
             proposed_experiment=candidates_per_round[round_idx],
             ax=gp_ax,
-            title=f"Round {round_idx + 1} - GP Model",
-            ylabel="Reaction Rate [U mL$^{-1}$]",
+            title=f"Round {round_idx + 1} - GP model",
+            ylabel="Reaction rate [U mL$^{-1}$]",
             xlabel=None,
             show_legend=(idx == 0),  # Show legend only once
         )
@@ -577,5 +592,5 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             show_legend=(idx == 0),  # Show legend only once
         )
 
-    matplotlib.pyplot.savefig("simple_example.pdf")
+    matplotlib.pyplot.savefig("simple_example.png", dpi=800)
     matplotlib.pyplot.show()
