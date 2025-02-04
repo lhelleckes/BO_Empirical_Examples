@@ -369,6 +369,7 @@ def plot_gp_fit(
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+    ax.set_ylim(0, None) # reaction rates are non-negative
 
     if show_legend:
         # manually order legend items
@@ -522,7 +523,7 @@ def plot_combined_gp_and_acquisition_from_results(
             highlight_points=highlight_points,
             proposed_experiment=candidates_per_round[round_idx],
             ax=gp_ax,
-            title=f"Round {round_idx + 1} - GP Model",
+            title=f"Round {round_idx + 1}",
             ylabel="Reaction rate [U mL$^{-1}$]",
             xlabel="pH [-]",  # X-axis label for every plot
             show_legend=False,
@@ -577,7 +578,7 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             highlight_points=highlight_points,
             proposed_experiment=candidates_per_round[round_idx],
             ax=gp_ax,
-            title=f"Round {round_idx + 1} - GP model",
+            title=f"Round {round_idx + 1}",
             ylabel="Reaction rate [U mL$^{-1}$]",
             xlabel=None,
             show_legend=(idx == 0),  # Show legend only once
