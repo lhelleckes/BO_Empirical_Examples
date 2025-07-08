@@ -255,6 +255,11 @@ def plot_gp_fit(
     ylabel="Output",
     xlabel="Input",
     show_legend=True,
+    visualize_iterations=True,
+    show_title=True,
+    show_xlabel=True,
+    show_ylabel=True,
+    plot_latest_observation=True,
 ):
     """
     Plot the GP fit, confidence intervals, and training data.
@@ -291,7 +296,6 @@ def plot_gp_fit(
 
     x_test = torch.linspace(bounds[0], bounds[1], 800).unsqueeze(-1)
 
-    gp_model = fit_gp_model(train_x, train_y, bounds)
 
     gp_model.eval()
     with torch.no_grad():
@@ -326,7 +330,7 @@ def plot_gp_fit(
         zorder=10,
     )
     # we might want to highlight the lastest observation
-    if highlight_points:
+    if plot_latest_observation and highlight_points:
         for x, y in highlight_points:
             ax.scatter(
                 [x],
@@ -336,7 +340,7 @@ def plot_gp_fit(
                 label="Latest observation",
                 zorder=20,
             )
-    else:
+    elif plot_latest_observation and not highlight_points:
         # dummy point for legend
         ax.scatter(
             [],
@@ -366,31 +370,39 @@ def plot_gp_fit(
         color=Colors.dark_red,
         linewidth=2,
     )
-    ax.set_title(title)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    if show_title:
+        ax.set_title(title)
+    if show_xlabel:    
+        ax.set_xlabel(xlabel)
+    if show_ylabel:
+        ax.set_ylabel(ylabel)
     ax.set_ylim(0, None) # reaction rates are non-negative
+    ax.set_xlim(xmin=bounds[0], xmax=bounds[1])
 
     if show_legend:
         # manually order legend items
         handles, labels = ax.get_legend_handles_labels()
-        laber_order = [
+
+        label_order = [
             "True generating function",
             "Training data",
-            "Latest observation",
             "GP mean",
             "Confidence tube",
         ]
 
-        odered_handles_labels = sorted(
-            zip(handles, labels), key=lambda x: laber_order.index(x[1])
-        )
-        ordered_handles, ordered_labels = zip(*odered_handles_labels)
+        if plot_latest_observation:
+            label_order.insert(2, "Latest observation")
+        
+        filtered = [(h, l) for h, l in zip(handles, labels) if l in label_order]
+        sorted_handles_labels = sorted(filtered, key=lambda x: label_order.index(x[1]))
 
-        ax.legend(ordered_handles, ordered_labels, loc="lower center", bbox_to_anchor=(0.58,0))
+        ordered_handles, ordered_labels = zip(*sorted_handles_labels)
+        ax.legend(ordered_handles, ordered_labels, loc="lower center",) #bbox_to_anchor=(0.58, 0))
+
 
     if ax is None:
         matplotlib.pyplot.show()
+
 
 
 def plot_acquisition_function(
@@ -432,7 +444,6 @@ def plot_acquisition_function(
         x_test.squeeze(-1).numpy(),
         acquisition_values,
         color=Colors.alt_blue,
-        label="Acquisition function" if show_legend else None,
     )
 
     candidates = candidates.numpy()
@@ -450,6 +461,7 @@ def plot_acquisition_function(
     ax.set_ylabel(ylabel)
     ax.set_yticks([])
     ax.set_yticklabels([])
+    ax.set_xlim(bounds[0], bounds[1])
 
     ax.set_xlabel(xlabel)
     if show_legend:
@@ -523,7 +535,7 @@ def plot_combined_gp_and_acquisition_from_results(
             highlight_points=highlight_points,
             proposed_experiment=candidates_per_round[round_idx],
             ax=gp_ax,
-            title=f"Round {round_idx + 1}",
+            title=f"Iteration {round_idx + 1}",
             ylabel="Reaction rate [U mL$^{-1}$]",
             xlabel="pH [-]",  # X-axis label for every plot
             show_legend=False,
@@ -578,8 +590,8 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             highlight_points=highlight_points,
             proposed_experiment=candidates_per_round[round_idx],
             ax=gp_ax,
-            title=f"Round {round_idx + 1}",
-            ylabel="Reaction rate [U mL$^{-1}$]",
+            title=f"Iteration {round_idx + 1}",
+            ylabel="Reaction rate [U] mL$^{-1}$]",
             xlabel=None,
             show_legend=(idx == 0),  # Show legend only once
         )
@@ -593,5 +605,72 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             show_legend=(idx == 0),  # Show legend only once
         )
 
-    matplotlib.pyplot.savefig("simple_example.png", dpi=800)
+    matplotlib.pyplot.savefig("simple_example.pdf", dpi=800)
+    matplotlib.pyplot.show()
+
+def plot_selected_rounds_2_columns(results, bounds, selected_rounds, truth_fn=None, truth_params=None):
+    gp_models = results["gp_models"]
+    acquisition_fns = results["acquisition_fns"]
+    train_x_per_round = results["train_x_per_round"]
+    train_y_per_round = results["train_y_per_round"]
+    candidates_per_round = results["candidates_per_round"]
+
+    num_selected = len(selected_rounds)
+    
+    # Compute number of columns (always 2), and total rows
+    num_cols = 2
+    num_rows = num_selected
+
+    fig, axes = matplotlib.pyplot.subplots(
+        num_rows, num_cols, figsize=(12, num_selected * 4),
+        gridspec_kw={"hspace": 0.15, "wspace": 0.2}, dpi=1200,
+        constrained_layout=True,
+    )
+
+
+    for idx, round_idx in enumerate(selected_rounds):
+        col = idx % 2  # alternate columns: 0, 1, 0, 1, ...
+        row_offset = (idx // 2) * 2  # stack blocks vertically
+        
+        gp_ax = axes[row_offset][col]
+        acq_ax = axes[row_offset + 1][col]
+
+        highlight_points = None
+        if round_idx > 0:
+            latest_x = train_x_per_round[round_idx][-1].item()
+            latest_y = train_y_per_round[round_idx][-1].item()
+            highlight_points = [(latest_x, latest_y)]
+
+        # GP plot
+        plot_gp_fit(
+            gp_model=gp_models[round_idx],
+            train_x=train_x_per_round[round_idx],
+            train_y=train_y_per_round[round_idx],
+            bounds=bounds,
+            ground_truth_fn=truth_fn,
+            ground_truth_params=truth_params,
+            highlight_points=highlight_points,
+            proposed_experiment=None,  # no proposed experiment in GP fit
+            ax=gp_ax,
+            title=f"Iteration {round_idx + 1}",
+            ylabel="Reaction rate [U mL$^{-1}$]" if col == 0 else None,
+            xlabel=None,
+            show_legend=(idx == 0),  # Only show legend once
+        )
+
+        # Acquisition function plot
+        plot_acquisition_function(
+            acquisition_fn=acquisition_fns[round_idx],
+            candidates=candidates_per_round[round_idx],
+            bounds=bounds,
+            ax=acq_ax,
+            ylabel="Acquisition function" if col == 0 else None,
+            xlabel="pH [-]",
+            show_legend=(idx == 0),
+        )
+    
+    matplotlib.pyplot.tight_layout()
+    fig.align_ylabels(axes[:, 0])
+    fig.align_ylabels(axes[:, 1])
+
     matplotlib.pyplot.show()
