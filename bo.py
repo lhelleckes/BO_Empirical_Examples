@@ -95,20 +95,24 @@ def generate_sobol_points(num_points: int, bounds: tuple, seed: int = None) -> n
 
     dimensions = len(range_min)
 
-    rng = numpy.random.RandomState(seed)
-    sobol_gen = scipy.stats.qmcSobol(d=dimensions, scramble=True, seed=rng)
+    sobol_gen = scipy.stats.qmc.Sobol(d=dimensions, scramble=True, seed=seed)
 
-    # bitwise operation to check if num_points is a power of 2
     if (num_points & (num_points - 1)) == 0:
-        points = sobol_gen.random_base2(m=int(numpy.log2(num_points)))
+        m = int(numpy.log2(num_points))
+        points = sobol_gen.random_base2(m=m)
     else:
         points = sobol_gen.random(n=num_points)
 
-    return range_min + points.flatten() * (range_max - range_min)
+    scaled_points = scipy.stats.qmc.scale(points, l_bounds=range_min, u_bounds=range_max)
+
+    if dimensions == 1:
+        return scaled_points.flatten()
+    else:
+        return scaled_points
 
 
-def perform_EI(train_x, train_y, bounds, num_candidates):
-    gp_model = fit_gp_model(train_x, train_y, bounds)
+def perform_EI(train_x, train_y, bounds, num_candidates, ls_prior=True, noise=0.5):
+    gp_model = fit_gp_model(train_x, train_y, bounds, ls_prior=ls_prior, noise=noise)
     best_f = train_y.max().item()
     bounds = torch.tensor(bounds, dtype=torch.double).view(2, -1)
     qei = botorch.acquisition.qExpectedImprovement(model=gp_model, best_f=best_f)
@@ -122,8 +126,8 @@ def perform_EI(train_x, train_y, bounds, num_candidates):
     return candidates, gp_model, qei
 
 
-def perform_logEI(train_x, train_y, bounds, num_candidates):
-    gp_model = fit_gp_model(train_x, train_y, bounds)
+def perform_logEI(train_x, train_y, bounds, num_candidates, ls_prior=True, noise=0.5):
+    gp_model = fit_gp_model(train_x, train_y, bounds, ls_prior, noise)
     best_f = train_y.max().item()
     bounds = torch.tensor(bounds, dtype=torch.double).view(2, -1)
     qlog_ei = botorch.acquisition.qLogExpectedImprovement(model=gp_model, best_f=best_f)
@@ -256,6 +260,7 @@ def perform_bo(
         [numpy.ndarray, typing.Tuple[float, float], float, float, float, typing.Optional[int]],
         numpy.ndarray,
     ] = symmetric_noise,
+    gp_model_builder=None,
     seed: int = None,
 ):
     """
@@ -288,23 +293,36 @@ def perform_bo(
         - train_y_per_round: List of training outputs for each round.
         - candidates_per_round: List of proposed candidates for each round.
     """
-    gp_models = []
-    acquisition_fns = []
-    train_x_per_round = [train_x]
-    train_y_per_round = [train_y]
-    candidates_per_round = []
+    results = {
+        "gp_models": [],
+        "acquisition_fns": [],
+        "train_x_per_round": [],
+        "train_y_per_round": [],
+        "candidates_per_round": [],
+    }
 
     for round_idx in range(num_rounds):
         print(f"Round {round_idx + 1}/{num_rounds}")
 
+        gp_model = gp_model_builder(train_x, train_y)
+
         if method == "EI":
-            candidates, gp_model, acquisition_fn = perform_EI(
-                train_x, train_y, bounds, num_candidates
+            best_f = train_y.max().item()
+            bounds_tensor = torch.tensor(bounds, dtype=torch.double).view(2, -1)
+            acquisition_fn = botorch.acquisition.ExpectedImprovement(
+                model=gp_model, best_f=best_f
+            )
+
+            # Optimize acquisition function
+            candidates, _ = botorch.optim.optimize_acqf(
+                acq_function=acquisition_fn,
+                bounds=bounds_tensor,
+                q=num_candidates,
+                num_restarts=10,
+                raw_samples=256,
             )
         elif method == "logEI":
-            candidates, gp_model, acquisition_fn = perform_logEI(
-                train_x, train_y, bounds, num_candidates
-            )
+            raise NotImplementedError("logEI not implemented in this refactor yet.")
         else:
             raise ValueError("Unsupported method. Use 'EI' or 'logEI'.")
 
@@ -321,21 +339,16 @@ def perform_bo(
 
         new_y = torch.tensor(observation, dtype=torch.double).reshape(-1, 1)
 
+        results["train_x_per_round"].append(train_x.clone())
+        results["train_y_per_round"].append(train_y.clone())
+
         # Update training data with new observations
         train_x = torch.cat([train_x, candidates], dim=0)
         train_y = torch.cat([train_y, new_y], dim=0)
 
         # Collect data for visualization
-        gp_models.append(gp_model)
-        acquisition_fns.append(acquisition_fn)
-        train_x_per_round.append(train_x.clone())
-        train_y_per_round.append(train_y.clone())
-        candidates_per_round.append(candidates.clone())
+        results["gp_models"].append(gp_model)
+        results["acquisition_fns"].append(acquisition_fn)
+        results["candidates_per_round"].append(candidates.clone())
 
-    return {
-        "gp_models": gp_models,
-        "acquisition_fns": acquisition_fns,
-        "train_x_per_round": train_x_per_round,
-        "train_y_per_round": train_y_per_round,
-        "candidates_per_round": candidates_per_round,
-    }
+    return results
