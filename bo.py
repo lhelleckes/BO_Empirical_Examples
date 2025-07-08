@@ -138,7 +138,7 @@ def perform_logEI(train_x, train_y, bounds, num_candidates):
 
 
 class EnzymeGP(botorch.models.SingleTaskGP):
-    def __init__(self, train_x, train_y, bounds, mean_module=None, covar_module=None):
+    def __init__(self, train_x, train_y, bounds, mean_module=None, covar_module=None, ls_prior=True, noise=0.5):
         """
         Initialize the GP model.
 
@@ -154,6 +154,8 @@ class EnzymeGP(botorch.models.SingleTaskGP):
             Custom mean module, defaults to ConstantMean.
         covar_module : gpytorch.kernels, optional
             Custom covariance module, defaults to  RBFKernel.
+        ls_prior : boolean, optional
+            Toggle informed length scale prior
         """
         super().__init__(
             train_x,
@@ -165,45 +167,73 @@ class EnzymeGP(botorch.models.SingleTaskGP):
         if isinstance(self.mean_module, gpytorch.means.ConstantMean):
             self.mean_module.constant.data.fill_(train_y.mean().item())
 
-        self.covar_module = (
-            covar_module
-            if covar_module
-            else gpytorch.kernels.ScaleKernel(
+        if covar_module:
+            self.covar_module = covar_module
+        elif ls_prior:
+            self.covar_module = gpytorch.kernels.ScaleKernel(
                 gpytorch.kernels.RBFKernel(
                     lengthscale_prior=gpytorch.priors.LogNormalPrior(
                         loc=numpy.log(numpy.abs(bounds[0] - bounds[1])) / 3, scale=0.5
                     ),
-                    lengthscale_constraint=gpytorch.constraints.Interval(1e-2, 1e2),
+                    lengthscale_constraint=gpytorch.constraints.Interval(1e-5, 1e5),
                 )
             )
+        else:
+            self.covar_module = gpytorch.kernels.ScaleKernel(
+                gpytorch.kernels.RBFKernel(
+                    lengthscale_prior=gpytorch.priors.LogNormalPrior(
+                        loc=numpy.log(numpy.abs(bounds[0] - bounds[1])) / 10, scale=0.2
+                    ),
+                    lengthscale_constraint=gpytorch.constraints.Interval(1e-5, 1e5),
+                )
+            )
+
+
+
+        noise_prior = gpytorch.priors.LogNormalPrior(
+            loc=numpy.log(noise),
+            scale=0.1
+        )
+
+        self.likelihood.noise_covar.register_prior(
+            "noise_prior",
+            noise_prior,
+            "noise"
         )
 
 
-def fit_gp_model(train_x, train_y, bounds, mean_module=None, covar_module=None):
+def fit_gp_model(
+    train_x,
+    train_y,
+    bounds,
+    *,
+    mean_module=None,
+    covar_module=None,
+    ls_prior=True,
+    noise=0.05
+):
     """
-    Fit a Gaussian Process model to the training data.
+    Fit an EnzymeGP model with strong priors.
 
     Parameters
     ----------
     train_x : torch.Tensor
-        The training inputs.
     train_y : torch.Tensor
-        The training targets.
-    mean_module : gpytorch.means.Mean, optional
-        Custom mean module. Defaults to ConstantMean.
-    covar_module : gpytorch.kernels.Kernel, optional
-        Custom covariance module. Defaults to a scaled RBF kernel.
-
-    Returns
-    -------
-    model : CustomSingleTaskGP
-        The fitted Gaussian Process model.
+    bounds : tuple
+    noise : float
+        Prior noise variance to apply.
     """
-    model = EnzymeGP(train_x, train_y, bounds, mean_module, covar_module)
+    model = EnzymeGP(
+        train_x=train_x,
+        train_y=train_y,
+        bounds=bounds,
+        mean_module=mean_module,
+        covar_module=covar_module,
+        ls_prior=ls_prior,
+        noise=noise,
+    )
 
-    # Define the Marginal Log Likelihood (MLL)
     mll = gpytorch.mlls.ExactMarginalLogLikelihood(model.likelihood, model)
-
     botorch.fit.fit_gpytorch_mll(mll)
 
     return model
