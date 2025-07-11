@@ -142,7 +142,7 @@ def perform_logEI(train_x, train_y, bounds, num_candidates, ls_prior=True, noise
 
 
 class EnzymeGP(botorch.models.SingleTaskGP):
-    def __init__(self, train_x, train_y, bounds, mean_module=None, covar_module=None, ls_prior=True, noise=0.5):
+    def __init__(self, train_x: torch.Tensor, train_y: torch.tensor, bounds: typing.Tuple[float, float], mean_module=None, covar_module=None, ls_prior=True, noise:float = 0.5):
         """
         Initialize the GP model.
 
@@ -161,49 +161,40 @@ class EnzymeGP(botorch.models.SingleTaskGP):
         ls_prior : boolean, optional
             Toggle informed length scale prior
         """
+
+        mean_mod = mean_module or gpytorch.means.ConstantMean()
+        base_kernel = gpytorch.kernels.RBFKernel(
+            lengthscale_prior=gpytorch.priors.LogNormalPrior(
+                loc=torch.log(torch.tensor(abs(bounds[1] - bounds[0]))) /
+                    (3 if ls_prior else 10),
+                scale=(0.5 if ls_prior else 0.2),
+            ),
+            lengthscale_constraint=gpytorch.constraints.Interval(1e-5, 1e5),
+        )
+        covar_mod = covar_module or gpytorch.kernels.ScaleKernel(base_kernel)
+
+
+        bnds = torch.tensor(bounds, dtype=train_x.dtype).view(2, -1)
+        input_tf   = botorch.models.transforms.Normalize(d=train_x.size(-1), bounds=bnds)
+        outcome_tf = botorch.models.transforms.Standardize(m=train_y.shape[-1])
+
+
         super().__init__(
-            train_x,
+            train_x, 
             train_y,
-            outcome_transform=botorch.models.transforms.Standardize(m=train_y.shape[-1]),
+            covar_module=covar_mod,
+            mean_module=mean_mod,
+            input_transform=input_tf,
+            outcome_transform=outcome_tf,
         )
 
-        self.mean_module = mean_module if mean_module else gpytorch.means.ConstantMean()
+
         if isinstance(self.mean_module, gpytorch.means.ConstantMean):
             self.mean_module.constant.data.fill_(train_y.mean().item())
 
-        if covar_module:
-            self.covar_module = covar_module
-        elif ls_prior:
-            self.covar_module = gpytorch.kernels.ScaleKernel(
-                gpytorch.kernels.RBFKernel(
-                    lengthscale_prior=gpytorch.priors.LogNormalPrior(
-                        loc=numpy.log(numpy.abs(bounds[0] - bounds[1])) / 3, scale=0.5
-                    ),
-                    lengthscale_constraint=gpytorch.constraints.Interval(1e-5, 1e5),
-                )
-            )
-        else:
-            self.covar_module = gpytorch.kernels.ScaleKernel(
-                gpytorch.kernels.RBFKernel(
-                    lengthscale_prior=gpytorch.priors.LogNormalPrior(
-                        loc=numpy.log(numpy.abs(bounds[0] - bounds[1])) / 10, scale=0.2
-                    ),
-                    lengthscale_constraint=gpytorch.constraints.Interval(1e-5, 1e5),
-                )
-            )
 
-
-
-        noise_prior = gpytorch.priors.LogNormalPrior(
-            loc=numpy.log(noise),
-            scale=0.1
-        )
-
-        self.likelihood.noise_covar.register_prior(
-            "noise_prior",
-            noise_prior,
-            "noise"
-        )
+        noise_prior = gpytorch.priors.LogNormalPrior(loc=torch.log(torch.tensor(noise)), scale=0.1)
+        self.likelihood.noise_covar.register_prior("noise_prior", noise_prior, "noise")
 
 
 def fit_gp_model(
@@ -322,7 +313,21 @@ def perform_bo(
                 raw_samples=256,
             )
         elif method == "logEI":
-            raise NotImplementedError("logEI not implemented in this refactor yet.")
+            best_f = train_y.max().item()
+            bounds_tensor = torch.tensor(bounds, dtype=torch.double).view(2, -1)
+            acquisition_fn = botorch.acquisition.LogExpectedImprovement(
+                model=gp_model, best_f=best_f
+            )
+
+            # Optimize acquisition function
+            candidates, _ = botorch.optim.optimize_acqf(
+                acq_function=acquisition_fn,
+                bounds=bounds_tensor,
+                q=num_candidates,
+                num_restarts=10,
+                raw_samples=256,
+            )
+
         else:
             raise ValueError("Unsupported method. Use 'EI' or 'logEI'.")
 

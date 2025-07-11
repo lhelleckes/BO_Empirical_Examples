@@ -5,8 +5,10 @@ import matplotlib.pyplot
 import numpy
 import torch
 
+from botorch.acquisition import LogExpectedImprovement
 from bo import fit_gp_model, generate_noisy_observations
 from kinetics import enzyme_truth, symmetric_noise
+
 
 
 class Colors:
@@ -440,6 +442,10 @@ def plot_acquisition_function(
     x_test = torch.linspace(bounds[0], bounds[1], 500).unsqueeze(-1)
     with torch.no_grad():
         acquisition_values = acquisition_fn(x_test.unsqueeze(-2)).detach().numpy().squeeze()
+    
+    if isinstance(acquisition_fn, LogExpectedImprovement):
+        acquisition_values = numpy.exp(acquisition_values)
+
     ax.plot(
         x_test.squeeze(-1).numpy(),
         acquisition_values,
