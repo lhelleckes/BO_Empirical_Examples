@@ -4,11 +4,10 @@ import ipywidgets
 import matplotlib.pyplot
 import numpy
 import torch
-
 from botorch.acquisition import LogExpectedImprovement
-from bo import fit_gp_model, generate_noisy_observations
-from kinetics import enzyme_truth, symmetric_noise
 
+from bo import generate_noisy_observations
+from kinetics import enzyme_truth, symmetric_noise
 
 
 class Colors:
@@ -298,7 +297,6 @@ def plot_gp_fit(
 
     x_test = torch.linspace(bounds[0], bounds[1], 800).unsqueeze(-1)
 
-
     gp_model.eval()
     with torch.no_grad():
         posterior = gp_model.posterior(x_test)
@@ -374,11 +372,11 @@ def plot_gp_fit(
     )
     if show_title:
         ax.set_title(title)
-    if show_xlabel:    
+    if show_xlabel:
         ax.set_xlabel(xlabel)
     if show_ylabel:
         ax.set_ylabel(ylabel)
-    ax.set_ylim(0, None) # reaction rates are non-negative
+    ax.set_ylim(0, None)  # reaction rates are non-negative
     ax.set_xlim(xmin=bounds[0], xmax=bounds[1])
 
     if show_legend:
@@ -394,17 +392,21 @@ def plot_gp_fit(
 
         if plot_latest_observation:
             label_order.insert(2, "Latest observation")
-        
-        filtered = [(h, l) for h, l in zip(handles, labels) if l in label_order]
+
+        filtered = [
+            (handle, label) for handle, label in zip(handles, labels) if label in label_order
+        ]
         sorted_handles_labels = sorted(filtered, key=lambda x: label_order.index(x[1]))
 
         ordered_handles, ordered_labels = zip(*sorted_handles_labels)
-        ax.legend(ordered_handles, ordered_labels, loc="lower center",) #bbox_to_anchor=(0.58, 0))
-
+        ax.legend(
+            ordered_handles,
+            ordered_labels,
+            loc="lower center",
+        )  # bbox_to_anchor=(0.58, 0))
 
     if ax is None:
         matplotlib.pyplot.show()
-
 
 
 def plot_acquisition_function(
@@ -442,7 +444,7 @@ def plot_acquisition_function(
     x_test = torch.linspace(bounds[0], bounds[1], 500).unsqueeze(-1)
     with torch.no_grad():
         acquisition_values = acquisition_fn(x_test.unsqueeze(-2)).detach().numpy().squeeze()
-    
+
     if isinstance(acquisition_fn, LogExpectedImprovement):
         acquisition_values = numpy.exp(acquisition_values)
 
@@ -521,7 +523,9 @@ def plot_combined_gp_and_acquisition_from_results(
         # Highlight the latest observation for the current round
         highlight_points = None
         if round_idx > 0:
-            latest_candidates = train_x_per_round[round_idx][-len(candidates_per_round[round_idx]) :]
+            latest_candidates = train_x_per_round[round_idx][
+                -len(candidates_per_round[round_idx]) :
+            ]
             latest_observation = train_y_per_round[round_idx][
                 -len(candidates_per_round[round_idx]) :
             ]
@@ -571,7 +575,11 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
 
     num_selected = len(selected_rounds)
     fig, axes = matplotlib.pyplot.subplots(
-        num_selected * 2, 1, figsize=(8, num_selected * 7.5), gridspec_kw={"hspace": 0.3}, dpi=800,
+        num_selected * 2,
+        1,
+        figsize=(8, num_selected * 7.5),
+        gridspec_kw={"hspace": 0.3},
+        dpi=800,
     )
     axes = axes if num_selected > 1 else [axes]  # Handle single-row case
 
@@ -614,7 +622,10 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
     matplotlib.pyplot.savefig("simple_example.pdf", dpi=800)
     matplotlib.pyplot.show()
 
-def plot_selected_rounds_2_columns(results, bounds, selected_rounds, truth_fn=None, truth_params=None):
+
+def plot_selected_rounds_2_columns(
+    results, bounds, selected_rounds, truth_fn=None, truth_params=None
+):
     gp_models = results["gp_models"]
     acquisition_fns = results["acquisition_fns"]
     train_x_per_round = results["train_x_per_round"]
@@ -622,22 +633,24 @@ def plot_selected_rounds_2_columns(results, bounds, selected_rounds, truth_fn=No
     candidates_per_round = results["candidates_per_round"]
 
     num_selected = len(selected_rounds)
-    
+
     # Compute number of columns (always 2), and total rows
     num_cols = 2
     num_rows = num_selected
 
     fig, axes = matplotlib.pyplot.subplots(
-        num_rows, num_cols, figsize=(12, num_selected * 4),
-        gridspec_kw={"hspace": 0.15, "wspace": 0.2}, dpi=1200,
+        num_rows,
+        num_cols,
+        figsize=(12, num_selected * 4),
+        gridspec_kw={"hspace": 0.15, "wspace": 0.2},
+        dpi=1200,
         constrained_layout=True,
     )
-
 
     for idx, round_idx in enumerate(selected_rounds):
         col = idx % 2  # alternate columns: 0, 1, 0, 1, ...
         row_offset = (idx // 2) * 2  # stack blocks vertically
-        
+
         gp_ax = axes[row_offset][col]
         acq_ax = axes[row_offset + 1][col]
 
@@ -674,7 +687,7 @@ def plot_selected_rounds_2_columns(results, bounds, selected_rounds, truth_fn=No
             xlabel="pH [-]",
             show_legend=(idx == 0),
         )
-    
+
     matplotlib.pyplot.tight_layout()
     fig.align_ylabels(axes[:, 0])
     fig.align_ylabels(axes[:, 1])

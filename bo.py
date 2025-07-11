@@ -142,7 +142,16 @@ def perform_logEI(train_x, train_y, bounds, num_candidates, ls_prior=True, noise
 
 
 class EnzymeGP(botorch.models.SingleTaskGP):
-    def __init__(self, train_x: torch.Tensor, train_y: torch.tensor, bounds: typing.Tuple[float, float], mean_module=None, covar_module=None, ls_prior=True, noise:float = 0.5):
+    def __init__(
+        self,
+        train_x: torch.Tensor,
+        train_y: torch.Tensor,
+        bounds: typing.Tuple[float, float],
+        mean_module=None,
+        covar_module=None,
+        ls_prior=True,
+        noise: float = 0.5,
+    ):
         """
         Initialize the GP model.
 
@@ -165,22 +174,19 @@ class EnzymeGP(botorch.models.SingleTaskGP):
         mean_mod = mean_module or gpytorch.means.ConstantMean()
         base_kernel = gpytorch.kernels.RBFKernel(
             lengthscale_prior=gpytorch.priors.LogNormalPrior(
-                loc=torch.log(torch.tensor(abs(bounds[1] - bounds[0]))) /
-                    (3 if ls_prior else 10),
+                loc=torch.log(torch.tensor(abs(bounds[1] - bounds[0]))) / (3 if ls_prior else 10),
                 scale=(0.5 if ls_prior else 0.2),
             ),
             lengthscale_constraint=gpytorch.constraints.Interval(1e-5, 1e5),
         )
         covar_mod = covar_module or gpytorch.kernels.ScaleKernel(base_kernel)
 
-
         bnds = torch.tensor(bounds, dtype=train_x.dtype).view(2, -1)
-        input_tf   = botorch.models.transforms.Normalize(d=train_x.size(-1), bounds=bnds)
+        input_tf = botorch.models.transforms.Normalize(d=train_x.size(-1), bounds=bnds)
         outcome_tf = botorch.models.transforms.Standardize(m=train_y.shape[-1])
 
-
         super().__init__(
-            train_x, 
+            train_x,
             train_y,
             covar_module=covar_mod,
             mean_module=mean_mod,
@@ -188,24 +194,16 @@ class EnzymeGP(botorch.models.SingleTaskGP):
             outcome_transform=outcome_tf,
         )
 
-
         if isinstance(self.mean_module, gpytorch.means.ConstantMean):
             self.mean_module.constant.data.fill_(train_y.mean().item())
 
-
+        # 5) register your noise prior
         noise_prior = gpytorch.priors.LogNormalPrior(loc=torch.log(torch.tensor(noise)), scale=0.1)
         self.likelihood.noise_covar.register_prior("noise_prior", noise_prior, "noise")
 
 
 def fit_gp_model(
-    train_x,
-    train_y,
-    bounds,
-    *,
-    mean_module=None,
-    covar_module=None,
-    ls_prior=True,
-    noise=0.05
+    train_x, train_y, bounds, *, mean_module=None, covar_module=None, ls_prior=True, noise=0.05
 ):
     """
     Fit an EnzymeGP model with strong priors.
@@ -253,7 +251,7 @@ def perform_bo(
     ] = symmetric_noise,
     gp_model_builder=None,
     seed: int = None,
-):
+) -> dict:
     """
     Perform multiple rounds of Bayesian Optimization and collect data for visualization.
 
@@ -284,7 +282,7 @@ def perform_bo(
         - train_y_per_round: List of training outputs for each round.
         - candidates_per_round: List of proposed candidates for each round.
     """
-    results = {
+    results: dict = {
         "gp_models": [],
         "acquisition_fns": [],
         "train_x_per_round": [],
@@ -300,9 +298,7 @@ def perform_bo(
         if method == "EI":
             best_f = train_y.max().item()
             bounds_tensor = torch.tensor(bounds, dtype=torch.double).view(2, -1)
-            acquisition_fn = botorch.acquisition.ExpectedImprovement(
-                model=gp_model, best_f=best_f
-            )
+            acquisition_fn = botorch.acquisition.ExpectedImprovement(model=gp_model, best_f=best_f)
 
             # Optimize acquisition function
             candidates, _ = botorch.optim.optimize_acqf(
