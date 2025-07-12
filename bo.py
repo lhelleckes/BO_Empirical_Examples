@@ -5,6 +5,8 @@ import gpytorch
 import numpy
 import scipy
 import torch
+from gpytorch.kernels import RBFKernel, ScaleKernel
+from gpytorch.priors import LogNormalPrior
 
 from kinetics import enzyme_truth, symmetric_noise
 
@@ -146,11 +148,10 @@ class EnzymeGP(botorch.models.SingleTaskGP):
         self,
         train_x: torch.Tensor,
         train_y: torch.Tensor,
-        bounds: typing.Tuple[float, float],
-        mean_module=None,
-        covar_module=None,
-        ls_prior=True,
-        noise: float = 0.5,
+        covar_module: gpytorch.kernels.Kernel,
+        mean_module: gpytorch.means.Mean = None,
+        input_transform=None,
+        outcome_transform=None,
     ):
         """
         Initialize the GP model.
@@ -172,58 +173,52 @@ class EnzymeGP(botorch.models.SingleTaskGP):
         """
 
         mean_mod = mean_module or gpytorch.means.ConstantMean()
-        base_kernel = gpytorch.kernels.RBFKernel(
-            lengthscale_prior=gpytorch.priors.LogNormalPrior(
-                loc=torch.log(torch.tensor(abs(bounds[1] - bounds[0]))) / (3 if ls_prior else 10),
-                scale=(0.5 if ls_prior else 0.2),
-            ),
-            lengthscale_constraint=gpytorch.constraints.Interval(1e-5, 1e5),
-        )
-        covar_mod = covar_module or gpytorch.kernels.ScaleKernel(base_kernel)
-
-        bnds = torch.tensor(bounds, dtype=train_x.dtype).view(2, -1)
-        input_tf = botorch.models.transforms.Normalize(d=train_x.size(-1), bounds=bnds)
-        outcome_tf = botorch.models.transforms.Standardize(m=train_y.shape[-1])
-
         super().__init__(
             train_x,
             train_y,
-            covar_module=covar_mod,
+            covar_module=covar_module,
             mean_module=mean_mod,
-            input_transform=input_tf,
-            outcome_transform=outcome_tf,
+            input_transform=input_transform,
+            outcome_transform=outcome_transform,
         )
 
         if isinstance(self.mean_module, gpytorch.means.ConstantMean):
             self.mean_module.constant.data.fill_(train_y.mean().item())
 
-        # 5) register your noise prior
-        noise_prior = gpytorch.priors.LogNormalPrior(loc=torch.log(torch.tensor(noise)), scale=0.1)
-        self.likelihood.noise_covar.register_prior("noise_prior", noise_prior, "noise")
-
 
 def fit_gp_model(
-    train_x, train_y, bounds, *, mean_module=None, covar_module=None, ls_prior=True, noise=0.05
+    train_x,
+    train_y,
+    bounds,
+    *,
+    lengthscale_prior: gpytorch.priors.Prior,
+    noise_prior: gpytorch.priors.Prior,
+    mean_module: gpytorch.means.Mean = None,
 ):
-    """
-    Fit an EnzymeGP model with strong priors.
+    base_kernel = RBFKernel(
+        lengthscale_prior=lengthscale_prior,
+        lengthscale_constraint=gpytorch.constraints.Interval(1e-5, 1e5),
+    )
 
-    Parameters
-    ----------
-    train_x : torch.Tensor
-    train_y : torch.Tensor
-    bounds : tuple
-    noise : float
-        Prior noise variance to apply.
-    """
+    covar_mod = ScaleKernel(base_kernel)
+
+    bounds_t = torch.tensor(bounds, dtype=train_x.dtype).view(2, -1)
+    input_tf = botorch.models.transforms.Normalize(d=train_x.size(-1), bounds=bounds_t)
+    outcome_tf = botorch.models.transforms.Standardize(m=train_y.shape[-1])
+
     model = EnzymeGP(
         train_x=train_x,
         train_y=train_y,
-        bounds=bounds,
+        covar_module=covar_mod,
         mean_module=mean_module,
-        covar_module=covar_module,
-        ls_prior=ls_prior,
-        noise=noise,
+        input_transform=input_tf,
+        outcome_transform=outcome_tf,
+    )
+
+    model.likelihood.noise_covar.register_prior(
+        "noise_prior",
+        noise_prior,
+        "noise",
     )
 
     mll = gpytorch.mlls.ExactMarginalLogLikelihood(model.likelihood, model)
@@ -353,3 +348,37 @@ def perform_bo(
         results["candidates_per_round"].append(candidates.clone())
 
     return results
+
+
+def transform_lengthscale_prior(
+    raw_lengthscale: float, bounds: tuple, scale: float = 0.5
+) -> LogNormalPrior:
+    low, high = bounds
+    # Convert raw lengthscale to normalized [0,1] space
+    normalized_ls = raw_lengthscale / (high - low)
+    # LogNormalPrior is on the positive parameter itself, so loc = log(normalized_ls)
+    loc = torch.log(torch.tensor(normalized_ls, dtype=torch.double))
+    return LogNormalPrior(loc=loc, scale=scale)
+
+
+def transform_noise_prior(
+    noise_val: float,
+    y_train: torch.Tensor,
+    scale: float = 0.2,
+) -> LogNormalPrior:
+    y = y_train.flatten()
+    y_min, y_max = y.min().item(), y.max().item()
+
+    y_rep = (y_min + y_max) / 2
+
+    # expected raw std‐dev and variance
+    raw_sigma = noise_val * y_rep
+    raw_var = raw_sigma**2
+
+    # convert to standardized‐space variance
+    y_std = float(y.std(unbiased=True).item())
+    std_var = raw_var / (y_std**2)
+
+    # build the LogNormal prior on variance
+    loc = torch.log(torch.tensor(std_var, dtype=torch.double))
+    return LogNormalPrior(loc=loc, scale=scale)

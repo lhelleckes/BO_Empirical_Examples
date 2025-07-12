@@ -1,5 +1,6 @@
-import numpy
 import typing
+
+import numpy
 
 
 def ratkowsky_curve(T, T_min=5, T_max=70, b=0.1, c=0.0002):
