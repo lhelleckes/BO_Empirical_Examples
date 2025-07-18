@@ -283,6 +283,7 @@ def perform_bo(
         "train_x_per_round": [],
         "train_y_per_round": [],
         "candidates_per_round": [],
+        "acquisition_vals": [],
     }
 
     for round_idx in range(num_rounds):
@@ -296,7 +297,7 @@ def perform_bo(
             acquisition_fn = botorch.acquisition.ExpectedImprovement(model=gp_model, best_f=best_f)
 
             # Optimize acquisition function
-            candidates, _ = botorch.optim.optimize_acqf(
+            candidates, vals = botorch.optim.optimize_acqf(
                 acq_function=acquisition_fn,
                 bounds=bounds_tensor,
                 q=num_candidates,
@@ -311,13 +312,15 @@ def perform_bo(
             )
 
             # Optimize acquisition function
-            candidates, _ = botorch.optim.optimize_acqf(
+            candidates, vals = botorch.optim.optimize_acqf(
                 acq_function=acquisition_fn,
                 bounds=bounds_tensor,
                 q=num_candidates,
                 num_restarts=10,
                 raw_samples=256,
             )
+
+            vals = numpy.exp(vals)
 
         else:
             raise ValueError("Unsupported method. Use 'EI' or 'logEI'.")
@@ -346,6 +349,7 @@ def perform_bo(
         results["gp_models"].append(gp_model)
         results["acquisition_fns"].append(acquisition_fn)
         results["candidates_per_round"].append(candidates.clone())
+        results["acquisition_vals"].append(vals.clone())
 
     return results
 

@@ -1,13 +1,16 @@
 import typing
 
 import ipywidgets
-import matplotlib.pyplot
+import matplotlib
 import numpy
 import torch
 from botorch.acquisition import LogExpectedImprovement
 
 from bo import generate_noisy_observations
 from kinetics import enzyme_truth, symmetric_noise
+
+matplotlib.rcParams["font.sans-serif"] = "Arial"
+matplotlib.rcParams["font.family"] = "sans-serif"
 
 
 class Colors:
@@ -16,6 +19,24 @@ class Colors:
     dark_red = numpy.array((122, 25, 24)) / 255
     dark_blue = numpy.array((0, 0, 255)) / 255
     alt_blue = numpy.array((59, 117, 175)) / 255
+    lavender = "#E6E6FA"
+    magnolia = "#F4F0F7"
+    gray = "#4D4D4D"
+    current = "#00635D"
+    eminence = "#713685"
+    pink = "#E97DC3"
+    green = "#08A238"
+    taupe = "#8F564D"
+    orange = "#FF8430"
+    blue = "#3083DC"
+    black = "k"
+
+
+matplotlib.rcParams["text.color"] = Colors.gray
+matplotlib.rcParams["axes.labelcolor"] = Colors.gray
+matplotlib.rcParams["axes.titlecolor"] = Colors.gray
+matplotlib.rcParams["xtick.color"] = Colors.black
+matplotlib.rcParams["ytick.color"] = Colors.black
 
 
 def plot_symmetric_noise(
@@ -42,7 +63,7 @@ def plot_symmetric_noise(
     """
     noise = symmetric_noise(x_range, bounds, sigma_0, sigma_1, max_noise, seed)
     matplotlib.pyplot.figure(figsize=(10, 6))
-    matplotlib.pyplot.plot(x_range, noise, label="Symmetric Noise", color="orange")
+    matplotlib.pyplot.plot(x_range, noise, label="Symmetric Noise", color=Colors.orange)
     matplotlib.pyplot.xlabel("X")
     matplotlib.pyplot.ylabel("Noise")
     matplotlib.pyplot.title("Symmetric Noise Distribution")
@@ -93,12 +114,20 @@ def plot_enzyme_truth(pH_range, enzyme_params):
     # Plot the total reaction rate
     matplotlib.pyplot.figure(figsize=(10, 6))
     matplotlib.pyplot.plot(
-        pH_range, total_rate, label="Total Reaction Rate", color="black", linewidth=2
+        pH_range, total_rate, label="Total Reaction Rate", color=Colors.gray, linewidth=2
     )
+
+    colors = [
+        Colors.pink,
+        Colors.green,
+        Colors.orange,
+    ]
 
     # Plot individual enzyme rates
     for i, rates in enumerate(individual_rates, start=1):
-        matplotlib.pyplot.plot(pH_range, rates, label=f"Enzyme {i} Rate", linestyle="--")
+        matplotlib.pyplot.plot(
+            pH_range, rates, label=f"Enzyme {i} Rate", color=colors[i - 1], linestyle="--"
+        )
 
     # Formatting
     matplotlib.pyplot.xlabel("pH")
@@ -128,8 +157,8 @@ def plot_noisy_samples(sigma_0, sigma_1, max_noise, bounds, enzyme_params, seed=
     y_true, _ = enzyme_truth(x, enzyme_params)  # Unpack total rate and individual rates
 
     matplotlib.pyplot.figure(figsize=(10, 6))
-    matplotlib.pyplot.plot(x, y_true, label="ground truth", color=Colors.light_blue, linewidth=2)
-    matplotlib.pyplot.scatter(x, y_noisy, color=Colors.dark_blue, label="noisy observations")
+    matplotlib.pyplot.scatter(x, y_noisy, color=Colors.black, label="noisy observations")
+    matplotlib.pyplot.plot(x, y_true, label="ground truth", color=Colors.gray, linewidth=2)
     matplotlib.pyplot.legend()
     matplotlib.pyplot.show()
 
@@ -307,8 +336,8 @@ def plot_gp_fit(
         x_test.squeeze(-1).numpy(),
         lower,
         upper,
-        color=Colors.light_red,
-        label="Confidence tube",
+        color=Colors.lavender,
+        label="95% confidence interval",
     )
 
     if ground_truth_fn and ground_truth_params:
@@ -318,14 +347,15 @@ def plot_gp_fit(
             x_ground_truth,
             y_ground_truth,
             label="True generating function",
-            color=Colors.light_blue,
+            color=Colors.gray,
+            linestyle="--",
             linewidth=2,
         )
     ax.scatter(
         train_x.numpy(),
         train_y.numpy(),
-        color=Colors.dark_blue,
-        label="Training data",
+        color=Colors.black,
+        label="Observations",
         s=80,
         zorder=10,
     )
@@ -335,7 +365,7 @@ def plot_gp_fit(
             ax.scatter(
                 [x],
                 [y],
-                color="orange",
+                color=Colors.orange,
                 s=100,
                 label="Latest observation",
                 zorder=20,
@@ -345,7 +375,7 @@ def plot_gp_fit(
         ax.scatter(
             [],
             [],
-            color="orange",
+            color=Colors.orange,
             s=100,
             label="Latest observation",
             zorder=20,
@@ -358,16 +388,18 @@ def plot_gp_fit(
         for exp in proposed_experiment:
             ax.axvline(
                 x=exp,
-                color="red",
-                linestyle="--",
+                color=Colors.pink,
+                linestyle="-",
                 linewidth=2,
+                alpha=0.6,
+                label="Proposed experiment" if show_legend else None,
             )
 
     ax.plot(
         x_test.numpy(),
         mean,
-        label="GP mean",
-        color=Colors.dark_red,
+        label="Posterior mean",
+        color=Colors.eminence,
         linewidth=2,
     )
     if show_title:
@@ -385,9 +417,9 @@ def plot_gp_fit(
 
         label_order = [
             "True generating function",
-            "Training data",
-            "GP mean",
-            "Confidence tube",
+            "Observations",
+            "Posterior mean",
+            "95% confidence interval",
         ]
 
         if plot_latest_observation:
@@ -399,12 +431,13 @@ def plot_gp_fit(
         sorted_handles_labels = sorted(filtered, key=lambda x: label_order.index(x[1]))
 
         ordered_handles, ordered_labels = zip(*sorted_handles_labels)
+        """
         ax.legend(
             ordered_handles,
             ordered_labels,
             loc="lower center",
         )  # bbox_to_anchor=(0.58, 0))
-
+        """
     if ax is None:
         matplotlib.pyplot.show()
 
@@ -414,6 +447,7 @@ def plot_acquisition_function(
     candidates,
     bounds,
     ax,
+    acquisition_vals=None,
     title=None,
     ylabel="Acquisition function",
     xlabel="pH [-]",
@@ -451,19 +485,29 @@ def plot_acquisition_function(
     ax.plot(
         x_test.squeeze(-1).numpy(),
         acquisition_values,
-        color=Colors.alt_blue,
+        color=Colors.blue,
+        linewidth=2,
+        zorder=10,
+        label="Acquisition function" if show_legend else None,
     )
 
-    candidates = candidates.numpy()
+    if acquisition_vals is not None and candidates is not None:
+        candidates = candidates.numpy()
+        acquisition_vals = acquisition_vals.numpy()
 
-    for candidate in candidates:
-        ax.axvline(
-            x=candidate,
-            color="red",
-            linestyle="--",
-            linewidth=2,
-            label="Proposed experiment" if show_legend else None,
-        )
+        candidates = numpy.atleast_1d(numpy.squeeze(candidates))
+        acquisition_vals = numpy.atleast_1d(numpy.squeeze(acquisition_vals))
+
+        for candidate, acquisition_val in zip(candidates, acquisition_vals):
+            ax.scatter(
+                x=candidate,
+                y=acquisition_val,
+                color=Colors.pink,
+                marker="*",
+                s=120,
+                zorder=20,
+                label="Proposed experiment" if show_legend else None,
+            )
     if title:
         ax.set_title(title)
     ax.set_ylabel(ylabel)
@@ -472,8 +516,10 @@ def plot_acquisition_function(
     ax.set_xlim(bounds[0], bounds[1])
 
     ax.set_xlabel(xlabel)
+    """
     if show_legend:
         ax.legend()
+    """
 
 
 def plot_combined_gp_and_acquisition_from_results(
@@ -503,6 +549,7 @@ def plot_combined_gp_and_acquisition_from_results(
     train_x_per_round = results["train_x_per_round"]
     train_y_per_round = results["train_y_per_round"]
     candidates_per_round = results["candidates_per_round"]
+    acquisition_vals = results["acquisition_vals"]
 
     num_rounds = len(gp_models)
     fig, axes = matplotlib.pyplot.subplots(
@@ -557,6 +604,7 @@ def plot_combined_gp_and_acquisition_from_results(
             candidates=candidates_per_round[round_idx],
             bounds=bounds,
             ax=acq_ax,
+            acquisition_vals=acquisition_vals[round_idx],
             title="Acquisition function",
             ylabel="Acquisition function",
             xlabel="pH [-]",  # X-axis label for every plot
@@ -605,7 +653,7 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             proposed_experiment=candidates_per_round[round_idx],
             ax=gp_ax,
             title=f"Iteration {round_idx + 1}",
-            ylabel="Reaction rate [U] mL$^{-1}$]",
+            ylabel="Reaction rate [U mL$^{-1}$]",
             xlabel=None,
             show_legend=(idx == 0),  # Show legend only once
         )
@@ -674,7 +722,7 @@ def plot_selected_rounds_2_columns(
             title=f"Iteration {round_idx + 1}",
             ylabel="Reaction rate [U mL$^{-1}$]" if col == 0 else None,
             xlabel=None,
-            show_legend=(idx == 0),  # Only show legend once
+            show_legend=False,  # Only show legend once
         )
 
         # Acquisition function plot
@@ -685,7 +733,7 @@ def plot_selected_rounds_2_columns(
             ax=acq_ax,
             ylabel="Acquisition function" if col == 0 else None,
             xlabel="pH [-]",
-            show_legend=(idx == 0),
+            show_legend=False,
         )
 
     matplotlib.pyplot.tight_layout()
