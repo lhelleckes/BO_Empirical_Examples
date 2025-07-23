@@ -1,0 +1,15 @@
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+line-length = 140
+
+[tool.mypy]
+ignore_missing_imports = true
+disable_error_code = ["call-arg", "assignment", "return-value", "import", "attr-defined"]
+exclude = [
+    'test_.*?\.py$',
+]
