@@ -19,7 +19,14 @@ def generate_noisy_observations(
         typing.Tuple[numpy.ndarray, typing.List[numpy.ndarray]],
     ],
     noise_fn: typing.Callable[
-        [numpy.ndarray, typing.Tuple[float, float], float, float, float, typing.Optional[int]],
+        [
+            numpy.ndarray,
+            typing.Tuple[float, float],
+            float,
+            float,
+            float,
+            typing.Optional[int],
+        ],
         numpy.ndarray,
     ],
     truth_params: typing.List[typing.Dict[str, float]],
@@ -27,19 +34,22 @@ def generate_noisy_observations(
     seed: typing.Optional[int] = None,
 ) -> numpy.ndarray:
     """
-    Generate noisy observations from a ground truth function and noise function,
-    replacing negative values with samples from a half-normal distribution.
+    Generate noisy, non-negative observations from a ground truth function.
+    This function adds heteroskedastic noise via `noise_fn` and replaces any negative
+    values by sampling from a half-normal distribution with scale `sigma_0`.
 
     Parameters
     ----------
-    x : numpy.ndarray
-        Input values.
-    truth_fn : Callable
-        Ground truth function to compute true values. Accepts `x` and `truth_params`.
+    x
+        An array of input values of shape `(n,)` or `(n, d)`.
+    bounds
+        Tuple `(low, high)` specifying the parameter space bounds for noise computation.
+    truth_fn
+        Callable that calculates enzyme reaction rates for given pH and truth function parameters.
     noise_fn : Callable
-        Function to generate noise.
-    truth_params : List[Dict[str, float]]
-        Parameters for the ground truth function.
+        Callable mapping `(x, bounds, sigma_0, sigma_1, max_noise, seed)` to noise array.
+    truth_params
+       List of parameter dictionaries for `truth_fn`. Each enzyme has a corresponding dictionary.
     noise_params : Dict[str, float]
         Dictionary of noise parameters containing `sigma_0`, `sigma_1`, and `max_noise`.
     seed : int, optional
@@ -48,7 +58,12 @@ def generate_noisy_observations(
     Returns
     -------
     numpy.ndarray
-        Noisy observations with non-negative values.
+        An array of noisy observations with the same shape as `y_true`
+
+    Raises
+    ------
+    ValueError
+        If any required key is missing in `noise_params`.
     """
     # Consolidate noise parameters
     required_params = ["sigma_0", "sigma_1", "max_noise"]
@@ -68,29 +83,33 @@ def generate_noisy_observations(
     negative_indices = y_noisy < 0
     if numpy.any(negative_indices):
         rng = numpy.random.default_rng(seed)  # Modern RNG
-        replacement_values = rng.normal(loc=0, scale=sigma_0, size=numpy.sum(negative_indices))
+        replacement_values = rng.normal(
+            loc=0, scale=sigma_0, size=numpy.sum(negative_indices)
+        )
         y_noisy[negative_indices] = numpy.abs(replacement_values)
 
     return y_noisy
 
 
-def generate_sobol_points(num_points: int, bounds: tuple, seed: int = None) -> numpy.ndarray:
+def generate_sobol_points(
+    num_points: int, bounds: tuple[float, float], seed: typing.Optional[int] = None
+) -> numpy.ndarray:
     """
-    Generate Sobol sequence points within a specified range.
+    Generate Sobol sequence points within specified bounds.
 
     Parameters
     ----------
-    num_points : int
+    num_points
         Number of points to generate.
-    bounds : Tuple[float, float]
+    bounds
         Bounds of the parameter space.
-    seed : int, optional
+    seed
         Random seed for reproducibility.
 
     Returns
     -------
     numpy.ndarray
-        Sobol points scaled to the specified range.
+        An array of shape `(num_points,)` or `(num_points, d)` of Sobol samples.
     """
     range_min = numpy.atleast_1d(bounds[0])
     range_max = numpy.atleast_1d(bounds[1])
@@ -105,42 +124,14 @@ def generate_sobol_points(num_points: int, bounds: tuple, seed: int = None) -> n
     else:
         points = sobol_gen.random(n=num_points)
 
-    scaled_points = scipy.stats.qmc.scale(points, l_bounds=range_min, u_bounds=range_max)
+    scaled_points = scipy.stats.qmc.scale(
+        points, l_bounds=range_min, u_bounds=range_max
+    )
 
     if dimensions == 1:
         return scaled_points.flatten()
     else:
         return scaled_points
-
-
-def perform_EI(train_x, train_y, bounds, num_candidates, ls_prior=True, noise=0.5):
-    gp_model = fit_gp_model(train_x, train_y, bounds, ls_prior=ls_prior, noise=noise)
-    best_f = train_y.max().item()
-    bounds = torch.tensor(bounds, dtype=torch.double).view(2, -1)
-    qei = botorch.acquisition.qExpectedImprovement(model=gp_model, best_f=best_f)
-    candidates, _ = botorch.optim.optimize_acqf(
-        acq_function=qei,
-        bounds=bounds,
-        q=num_candidates,
-        num_restarts=10,
-        raw_samples=256,
-    )
-    return candidates, gp_model, qei
-
-
-def perform_logEI(train_x, train_y, bounds, num_candidates, ls_prior=True, noise=0.5):
-    gp_model = fit_gp_model(train_x, train_y, bounds, ls_prior, noise)
-    best_f = train_y.max().item()
-    bounds = torch.tensor(bounds, dtype=torch.double).view(2, -1)
-    qlog_ei = botorch.acquisition.qLogExpectedImprovement(model=gp_model, best_f=best_f)
-    candidates, _ = botorch.optim.optimize_acqf(
-        acq_function=qlog_ei,
-        bounds=bounds,
-        q=num_candidates,
-        num_restarts=10,
-        raw_samples=256,
-    )
-    return candidates, gp_model, qlog_ei
 
 
 class EnzymeGP(botorch.models.SingleTaskGP):
@@ -154,22 +145,22 @@ class EnzymeGP(botorch.models.SingleTaskGP):
         outcome_transform=None,
     ):
         """
-        Initialize the GP model.
+        A GP model specialized for enzyme rate data.
 
         Parameters
         ----------
-        train_x : torch.Tensor
-            The training inputs.
-        train_y : torch.Tensor
-            The training targets.
-        bounds : tuple
-            The bounds of the parameter space.
-        mean_module : gpytorch.means, optional
-            Custom mean module, defaults to ConstantMean.
-        covar_module : gpytorch.kernels, optional
-            Custom covariance module, defaults to  RBFKernel.
-        ls_prior : boolean, optional
-            Toggle informed length scale prior
+        train_x
+            Tensor of shape `(n, d)` of training inputs.
+        train_y
+            Tensor of shape `(n, 1)` of training outputs.
+        covar_module
+            A GPyTorch kernel.
+        mean_module
+            A GPyTorch mean function; defaults to ConstantMean.
+        input_transform
+            A BoTorch input transform (e.g. Normalize).
+        outcome_transform
+            A BoTorch outcome transform (e.g. Standardize).
         """
 
         mean_mod = mean_module or gpytorch.means.ConstantMean()
@@ -187,14 +178,35 @@ class EnzymeGP(botorch.models.SingleTaskGP):
 
 
 def fit_gp_model(
-    train_x,
-    train_y,
-    bounds,
+    train_x: torch.Tensor,
+    train_y: torch.Tensor,
+    bounds: tuple[float, float],
     *,
     lengthscale_prior: gpytorch.priors.Prior,
     noise_prior: gpytorch.priors.Prior,
     mean_module: gpytorch.means.Mean = None,
-):
+) -> EnzymeGP:
+    """
+    Fit an EnzymeGP.
+
+    Parameters
+    ----------
+    train_x
+        Tensor `(n, d)` of inputs.
+    train_y
+        Tensor `(n, 1)` of targets.
+    bounds
+        Tuple `(low, high)` for input space normalization.
+    lengthscale_prior
+        Prior over kernel lengthscale.
+    noise_prior
+        Prior over likelihood noise.
+
+    Returns
+    -------
+    EnzymeGP
+        The trained GP model with registered priors.
+    """
     base_kernel = RBFKernel(
         lengthscale_prior=lengthscale_prior,
         lengthscale_constraint=gpytorch.constraints.Interval(1e-5, 1e5),
@@ -236,46 +248,59 @@ def perform_bo(
     method: str,
     truth_params: typing.List[typing.Dict[str, float]],
     noise_params: typing.Dict[str, float],
+    gp_model_builder: typing.Callable[..., EnzymeGP],
     truth_fn: typing.Callable[
         [numpy.ndarray, typing.List[typing.Dict[str, float]]],
         typing.Tuple[numpy.ndarray, typing.List[numpy.ndarray]],
     ] = enzyme_truth,
     noise_fn: typing.Callable[
-        [numpy.ndarray, typing.Tuple[float, float], float, float, float, typing.Optional[int]],
+        [
+            numpy.ndarray,
+            typing.Tuple[float, float],
+            float,
+            float,
+            float,
+            typing.Optional[int],
+        ],
         numpy.ndarray,
     ] = symmetric_noise,
-    gp_model_builder=None,
-    seed: int = None,
-) -> dict:
+    seed: typing.Optional[int] = None,
+) -> dict[str, typing.Any]:
     """
-    Perform multiple rounds of Bayesian Optimization and collect data for visualization.
+    Run Bayesian Optimization for multiple rounds and collect results.
 
     Parameters
     ----------
-    train_x : torch.Tensor
-        Initial training inputs.
-    train_y : torch.Tensor
-        Initial training outputs.
-    bounds : torch.Tensor
-        Input domain bounds.
-    num_candidates : int
-        Number of candidates to propose in each round.
-    num_rounds : int
-        Number of BO rounds.
-    method : str, optional
-        Optimization method: "EI" (Expected Improvement) or "TS" (Thompson Sampling).
-    seed : int, optional
-        Random seed for reproducibility.
+    train_x
+        Initial `(n, d)` tensor of inputs.
+    train_y
+        Initial `(n, 1)` tensor of outputs.
+    bounds
+        Tuple `(low, high)` for input domain.
+    num_candidates
+        Number of proposals per round.
+    num_rounds
+        Total number of BO iterations.
+    method
+        Acquisition: "EI" or "logEI".
+    truth_params
+        Parameters for ground truth function.
+    noise_params
+        Parameters for noise generation.
+    gp_model_builder
+        Optional custom GP builder; defaults to `fit_gp_model`.
+    truth_fn
+        Function to compute ground truth values.
+    noise_fn
+        Function to generate noise.
+    seed
+        Optional seed for reproducibility.
 
     Returns
     -------
     dict
-        A dictionary containing:
-        - gp_models: List of GP models from each round.
-        - acquisition_fns: List of acquisition functions from each round.
-        - train_x_per_round: List of training inputs for each round.
-        - train_y_per_round: List of training outputs for each round.
-        - candidates_per_round: List of proposed candidates for each round.
+        Contains lists: 'gp_models', 'acquisition_fns', 'train_x_per_round',
+        'train_y_per_round', 'candidates_per_round', 'acquisition_vals'.
     """
     results: dict = {
         "gp_models": [],
@@ -294,7 +319,9 @@ def perform_bo(
         if method == "EI":
             best_f = train_y.max().item()
             bounds_tensor = torch.tensor(bounds, dtype=torch.double).view(2, -1)
-            acquisition_fn = botorch.acquisition.ExpectedImprovement(model=gp_model, best_f=best_f)
+            acquisition_fn = botorch.acquisition.ExpectedImprovement(
+                model=gp_model, best_f=best_f
+            )
 
             # Optimize acquisition function
             candidates, vals = botorch.optim.optimize_acqf(
@@ -355,8 +382,26 @@ def perform_bo(
 
 
 def transform_lengthscale_prior(
-    raw_lengthscale: float, bounds: tuple, scale: float = 0.5
+    raw_lengthscale: float, bounds: tuple[float, float], scale: float = 0.5
 ) -> LogNormalPrior:
+    """
+    Create a LogNormal prior for the kernel lengthscale normalized by the input range.
+
+    Parameters
+    ----------
+    raw_lengthscale
+        Informative guess of lengthscale in original units.
+    bounds
+        Tuple `(low, high)` of the input domain.
+    scale
+        Scale (stddev) of the log-normal prior.
+
+    Returns
+    -------
+    LogNormalPrior
+        A prior over the normalized lengthscale.
+    """
+
     low, high = bounds
     # Convert raw lengthscale to normalized [0,1] space
     normalized_ls = raw_lengthscale / (high - low)
@@ -370,6 +415,23 @@ def transform_noise_prior(
     y_train: torch.Tensor,
     scale: float = 0.2,
 ) -> LogNormalPrior:
+    """
+    Create a LogNormal prior for the observation noise variance.
+
+    Parameters
+    ----------
+    noise_val
+        Relative noise magnitude (fraction of response range).
+    y_train
+        Tensor `(n, 1)` of observed targets.
+    scale
+        Scale (stddev) of the log-normal prior.
+
+    Returns
+    -------
+    LogNormalPrior
+        A prior over the noise variance, standardized by empirical y std.
+    """
     y = y_train.flatten()
     y_min, y_max = y.min().item(), y.max().item()
 

@@ -120,7 +120,7 @@ def heteroskedastic_noise(
     sigma_0: float = 0.03,
     sigma_1: float = 0.1,
     max_noise: float = 0.4,
-    seed: int = None,
+    seed: typing.Optional[int] = None,
 ) -> numpy.ndarray:
     """
     Generate heteroskedastic noise using a polynomial variance structure,
@@ -164,7 +164,7 @@ def symmetric_noise(
     sigma_0: float = 0.03,
     sigma_1: float = 0.1,
     max_noise: float = 0.4,
-    seed: int = None,
+    seed: typing.Optional[int] = None,
 ) -> numpy.ndarray:
     """
     Generate symmetric noise that increases towards the edges of the parameter space
