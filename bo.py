@@ -35,7 +35,7 @@ def generate_noisy_observations(
 ) -> numpy.ndarray:
     """
     Generate noisy, non-negative observations from a ground truth function.
-    This function adds heteroskedastic noise via `noise_fn` and replaces any negative
+    This function adds heteroscedastic noise via `noise_fn` and replaces any negative
     values by sampling from a half-normal distribution with scale `sigma_0`.
 
     Parameters

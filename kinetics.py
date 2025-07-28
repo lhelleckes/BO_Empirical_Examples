@@ -131,7 +131,7 @@ def enzyme_truth(
     return total_rate, rates
 
 
-def heteroskedastic_noise(
+def heteroscedastic_noise(
     x: numpy.ndarray,
     bounds: tuple[float, float],
     sigma_0: float = 0.03,
@@ -140,7 +140,7 @@ def heteroskedastic_noise(
     seed: typing.Optional[int] = None,
 ) -> numpy.ndarray:
     """
-    Generate heteroskedastic noise using a polynomial variance structure,
+    Generate heteroscedastic noise using a polynomial variance structure,
     agnostic to the range of x-values.
 
     Parameters
