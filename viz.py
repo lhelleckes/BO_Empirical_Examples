@@ -1,12 +1,16 @@
 import typing
 
 import ipywidgets
-import matplotlib.pyplot
+import matplotlib
 import numpy
 import torch
+from botorch.acquisition import LogExpectedImprovement
 
-from bo import fit_gp_model, generate_noisy_observations
+from bo import generate_noisy_observations
 from kinetics import enzyme_truth, symmetric_noise
+
+matplotlib.rcParams["font.sans-serif"] = "Arial"
+matplotlib.rcParams["font.family"] = "sans-serif"
 
 
 class Colors:
@@ -15,6 +19,24 @@ class Colors:
     dark_red = numpy.array((122, 25, 24)) / 255
     dark_blue = numpy.array((0, 0, 255)) / 255
     alt_blue = numpy.array((59, 117, 175)) / 255
+    lavender = "#E6E6FA"
+    magnolia = "#F4F0F7"
+    gray = "#4D4D4D"
+    current = "#00635D"
+    eminence = "#713685"
+    pink = "#E97DC3"
+    green = "#08A238"
+    taupe = "#8F564D"
+    orange = "#FF8430"
+    blue = "#3083DC"
+    black = "k"
+
+
+matplotlib.rcParams["text.color"] = Colors.gray
+matplotlib.rcParams["axes.labelcolor"] = Colors.gray
+matplotlib.rcParams["axes.titlecolor"] = Colors.gray
+matplotlib.rcParams["xtick.color"] = Colors.black
+matplotlib.rcParams["ytick.color"] = Colors.black
 
 
 def plot_symmetric_noise(
@@ -41,7 +63,7 @@ def plot_symmetric_noise(
     """
     noise = symmetric_noise(x_range, bounds, sigma_0, sigma_1, max_noise, seed)
     matplotlib.pyplot.figure(figsize=(10, 6))
-    matplotlib.pyplot.plot(x_range, noise, label="Symmetric Noise", color="orange")
+    matplotlib.pyplot.plot(x_range, noise, label="Symmetric Noise", color=Colors.orange)
     matplotlib.pyplot.xlabel("X")
     matplotlib.pyplot.ylabel("Noise")
     matplotlib.pyplot.title("Symmetric Noise Distribution")
@@ -92,12 +114,20 @@ def plot_enzyme_truth(pH_range, enzyme_params):
     # Plot the total reaction rate
     matplotlib.pyplot.figure(figsize=(10, 6))
     matplotlib.pyplot.plot(
-        pH_range, total_rate, label="Total Reaction Rate", color="black", linewidth=2
+        pH_range, total_rate, label="Total Reaction Rate", color=Colors.gray, linewidth=2
     )
+
+    colors = [
+        Colors.pink,
+        Colors.green,
+        Colors.orange,
+    ]
 
     # Plot individual enzyme rates
     for i, rates in enumerate(individual_rates, start=1):
-        matplotlib.pyplot.plot(pH_range, rates, label=f"Enzyme {i} Rate", linestyle="--")
+        matplotlib.pyplot.plot(
+            pH_range, rates, label=f"Enzyme {i} Rate", color=colors[i - 1], linestyle="--"
+        )
 
     # Formatting
     matplotlib.pyplot.xlabel("pH")
@@ -127,8 +157,8 @@ def plot_noisy_samples(sigma_0, sigma_1, max_noise, bounds, enzyme_params, seed=
     y_true, _ = enzyme_truth(x, enzyme_params)  # Unpack total rate and individual rates
 
     matplotlib.pyplot.figure(figsize=(10, 6))
-    matplotlib.pyplot.plot(x, y_true, label="ground truth", color=Colors.light_blue, linewidth=2)
-    matplotlib.pyplot.scatter(x, y_noisy, color=Colors.dark_blue, label="noisy observations")
+    matplotlib.pyplot.scatter(x, y_noisy, color=Colors.black, label="noisy observations")
+    matplotlib.pyplot.plot(x, y_true, label="ground truth", color=Colors.gray, linewidth=2)
     matplotlib.pyplot.legend()
     matplotlib.pyplot.show()
 
@@ -251,10 +281,15 @@ def plot_gp_fit(
     highlight_points=None,
     proposed_experiment=None,
     ax=None,
-    title="GP Fit",
+    title="GP fit",
     ylabel="Output",
     xlabel="Input",
     show_legend=True,
+    visualize_iterations=True,
+    show_title=True,
+    show_xlabel=True,
+    show_ylabel=True,
+    plot_latest_observation=True,
 ):
     """
     Plot the GP fit, confidence intervals, and training data.
@@ -291,8 +326,6 @@ def plot_gp_fit(
 
     x_test = torch.linspace(bounds[0], bounds[1], 800).unsqueeze(-1)
 
-    gp_model = fit_gp_model(train_x, train_y, bounds)
-
     gp_model.eval()
     with torch.no_grad():
         posterior = gp_model.posterior(x_test)
@@ -303,8 +336,8 @@ def plot_gp_fit(
         x_test.squeeze(-1).numpy(),
         lower,
         upper,
-        color=Colors.light_red,
-        label="Confidence Interval",
+        color=Colors.lavender,
+        label="95% confidence interval",
     )
 
     if ground_truth_fn and ground_truth_params:
@@ -313,29 +346,40 @@ def plot_gp_fit(
         ax.plot(
             x_ground_truth,
             y_ground_truth,
-            label="Ground Truth",
-            color=Colors.light_blue,
+            label="True generating function",
+            color=Colors.gray,
+            linestyle="--",
             linewidth=2,
         )
     ax.scatter(
         train_x.numpy(),
         train_y.numpy(),
-        color=Colors.dark_blue,
-        label="Training Data",
+        color=Colors.black,
+        label="Observations",
         s=80,
         zorder=10,
     )
     # we might want to highlight the lastest observation
-    if highlight_points:
+    if plot_latest_observation and highlight_points:
         for x, y in highlight_points:
             ax.scatter(
                 [x],
                 [y],
-                color="orange",
+                color=Colors.orange,
                 s=100,
-                label="Latest Observation",
+                label="Latest observation",
                 zorder=20,
             )
+    elif plot_latest_observation and not highlight_points:
+        # dummy point for legend
+        ax.scatter(
+            [],
+            [],
+            color=Colors.orange,
+            s=100,
+            label="Latest observation",
+            zorder=20,
+        )
 
     # Highlight proposed experiment
     if proposed_experiment is not None:
@@ -344,26 +388,56 @@ def plot_gp_fit(
         for exp in proposed_experiment:
             ax.axvline(
                 x=exp,
-                color="red",
-                linestyle="--",
+                color=Colors.pink,
+                linestyle="-",
                 linewidth=2,
-                label="Proposed Experiment",
+                alpha=0.6,
+                label="Proposed experiment" if show_legend else None,
             )
 
     ax.plot(
         x_test.numpy(),
         mean,
-        label="GP Prediction",
-        color=Colors.dark_red,
+        label="Posterior mean",
+        color=Colors.eminence,
         linewidth=2,
     )
-    ax.set_title(title)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    if show_title:
+        ax.set_title(title)
+    if show_xlabel:
+        ax.set_xlabel(xlabel)
+    if show_ylabel:
+        ax.set_ylabel(ylabel)
+    ax.set_ylim(0, None)  # reaction rates are non-negative
+    ax.set_xlim(xmin=bounds[0], xmax=bounds[1])
 
     if show_legend:
-        ax.legend()
+        # manually order legend items
+        handles, labels = ax.get_legend_handles_labels()
 
+        label_order = [
+            "True generating function",
+            "Observations",
+            "Posterior mean",
+            "95% confidence interval",
+        ]
+
+        if plot_latest_observation:
+            label_order.insert(2, "Latest observation")
+
+        filtered = [
+            (handle, label) for handle, label in zip(handles, labels) if label in label_order
+        ]
+        sorted_handles_labels = sorted(filtered, key=lambda x: label_order.index(x[1]))
+
+        ordered_handles, ordered_labels = zip(*sorted_handles_labels)
+        """
+        ax.legend(
+            ordered_handles,
+            ordered_labels,
+            loc="lower center",
+        )  # bbox_to_anchor=(0.58, 0))
+        """
     if ax is None:
         matplotlib.pyplot.show()
 
@@ -373,8 +447,9 @@ def plot_acquisition_function(
     candidates,
     bounds,
     ax,
+    acquisition_vals=None,
     title=None,
-    ylabel="Acquisition Value",
+    ylabel="Acquisition function",
     xlabel="pH [-]",
     show_legend=True,
 ):
@@ -403,32 +478,48 @@ def plot_acquisition_function(
     x_test = torch.linspace(bounds[0], bounds[1], 500).unsqueeze(-1)
     with torch.no_grad():
         acquisition_values = acquisition_fn(x_test.unsqueeze(-2)).detach().numpy().squeeze()
+
+    if isinstance(acquisition_fn, LogExpectedImprovement):
+        acquisition_values = numpy.exp(acquisition_values)
+
     ax.plot(
         x_test.squeeze(-1).numpy(),
         acquisition_values,
-        color=Colors.alt_blue,
-        label="Acquisition Value" if show_legend else None,
+        color=Colors.blue,
+        linewidth=2,
+        zorder=10,
+        label="Acquisition function" if show_legend else None,
     )
 
-    candidates = candidates.numpy()
+    if acquisition_vals is not None and candidates is not None:
+        candidates = candidates.numpy()
+        acquisition_vals = acquisition_vals.numpy()
 
-    for candidate in candidates:
-        ax.axvline(
-            x=candidate,
-            color="red",
-            linestyle="--",
-            linewidth=2,
-            label="Proposed Candidate" if show_legend else None,
-        )
+        candidates = numpy.atleast_1d(numpy.squeeze(candidates))
+        acquisition_vals = numpy.atleast_1d(numpy.squeeze(acquisition_vals))
+
+        for candidate, acquisition_val in zip(candidates, acquisition_vals):
+            ax.scatter(
+                x=candidate,
+                y=acquisition_val,
+                color=Colors.pink,
+                marker="*",
+                s=120,
+                zorder=20,
+                label="Proposed experiment" if show_legend else None,
+            )
     if title:
         ax.set_title(title)
     ax.set_ylabel(ylabel)
     ax.set_yticks([])
     ax.set_yticklabels([])
+    ax.set_xlim(bounds[0], bounds[1])
 
     ax.set_xlabel(xlabel)
+    """
     if show_legend:
         ax.legend()
+    """
 
 
 def plot_combined_gp_and_acquisition_from_results(
@@ -458,6 +549,7 @@ def plot_combined_gp_and_acquisition_from_results(
     train_x_per_round = results["train_x_per_round"]
     train_y_per_round = results["train_y_per_round"]
     candidates_per_round = results["candidates_per_round"]
+    acquisition_vals = results["acquisition_vals"]
 
     num_rounds = len(gp_models)
     fig, axes = matplotlib.pyplot.subplots(
@@ -465,6 +557,7 @@ def plot_combined_gp_and_acquisition_from_results(
         2,
         figsize=(12, num_rounds * 2.5),
         gridspec_kw={"wspace": 0.3, "hspace": 0.6},
+        dpi=800,
     )
 
     # Ensure axes is a 2D array even if num_rounds == 1
@@ -477,7 +570,9 @@ def plot_combined_gp_and_acquisition_from_results(
         # Highlight the latest observation for the current round
         highlight_points = None
         if round_idx > 0:
-            latest_candidates = train_x_per_round[round_idx][-len(candidates_per_round[round_idx]) :]
+            latest_candidates = train_x_per_round[round_idx][
+                -len(candidates_per_round[round_idx]) :
+            ]
             latest_observation = train_y_per_round[round_idx][
                 -len(candidates_per_round[round_idx]) :
             ]
@@ -497,8 +592,8 @@ def plot_combined_gp_and_acquisition_from_results(
             highlight_points=highlight_points,
             proposed_experiment=candidates_per_round[round_idx],
             ax=gp_ax,
-            title=f"Round {round_idx + 1} - GP Model",
-            ylabel="Reaction Rate",
+            title=f"Iteration {round_idx + 1}",
+            ylabel="Reaction rate [U mL$^{-1}$]",
             xlabel="pH [-]",  # X-axis label for every plot
             show_legend=False,
         )
@@ -509,8 +604,9 @@ def plot_combined_gp_and_acquisition_from_results(
             candidates=candidates_per_round[round_idx],
             bounds=bounds,
             ax=acq_ax,
-            title="Acquisition Function",
-            ylabel="Acquisition Value",
+            acquisition_vals=acquisition_vals[round_idx],
+            title="Acquisition function",
+            ylabel="Acquisition function",
             xlabel="pH [-]",  # X-axis label for every plot
             show_legend=False,
         )
@@ -527,7 +623,11 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
 
     num_selected = len(selected_rounds)
     fig, axes = matplotlib.pyplot.subplots(
-        num_selected * 2, 1, figsize=(8, num_selected * 7.5), gridspec_kw={"hspace": 0.3}
+        num_selected * 2,
+        1,
+        figsize=(8, num_selected * 7.5),
+        gridspec_kw={"hspace": 0.3},
+        dpi=800,
     )
     axes = axes if num_selected > 1 else [axes]  # Handle single-row case
 
@@ -552,10 +652,10 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             highlight_points=highlight_points,
             proposed_experiment=candidates_per_round[round_idx],
             ax=gp_ax,
-            title=f"Round {round_idx + 1} - GP Model",
-            ylabel="Reaction Rate",
+            title=f"Iteration {round_idx + 1}",
+            ylabel="Reaction rate [U mL$^{-1}$]",
             xlabel=None,
-            show_legend=False,
+            show_legend=(idx == 0),  # Show legend only once
         )
 
         # Acquisition function plot
@@ -564,7 +664,80 @@ def plot_selected_rounds(results, bounds, selected_rounds, truth_fn=None, truth_
             candidates=candidates_per_round[round_idx],
             bounds=bounds,
             ax=acq_ax,
+            show_legend=(idx == 0),  # Show legend only once
+        )
+
+    matplotlib.pyplot.savefig("simple_example.pdf", dpi=800)
+    matplotlib.pyplot.show()
+
+
+def plot_selected_rounds_2_columns(
+    results, bounds, selected_rounds, truth_fn=None, truth_params=None
+):
+    gp_models = results["gp_models"]
+    acquisition_fns = results["acquisition_fns"]
+    train_x_per_round = results["train_x_per_round"]
+    train_y_per_round = results["train_y_per_round"]
+    candidates_per_round = results["candidates_per_round"]
+
+    num_selected = len(selected_rounds)
+
+    # Compute number of columns (always 2), and total rows
+    num_cols = 2
+    num_rows = num_selected
+
+    fig, axes = matplotlib.pyplot.subplots(
+        num_rows,
+        num_cols,
+        figsize=(12, num_selected * 4),
+        gridspec_kw={"hspace": 0.15, "wspace": 0.2},
+        dpi=1200,
+        constrained_layout=True,
+    )
+
+    for idx, round_idx in enumerate(selected_rounds):
+        col = idx % 2  # alternate columns: 0, 1, 0, 1, ...
+        row_offset = (idx // 2) * 2  # stack blocks vertically
+
+        gp_ax = axes[row_offset][col]
+        acq_ax = axes[row_offset + 1][col]
+
+        highlight_points = None
+        if round_idx > 0:
+            latest_x = train_x_per_round[round_idx][-1].item()
+            latest_y = train_y_per_round[round_idx][-1].item()
+            highlight_points = [(latest_x, latest_y)]
+
+        # GP plot
+        plot_gp_fit(
+            gp_model=gp_models[round_idx],
+            train_x=train_x_per_round[round_idx],
+            train_y=train_y_per_round[round_idx],
+            bounds=bounds,
+            ground_truth_fn=truth_fn,
+            ground_truth_params=truth_params,
+            highlight_points=highlight_points,
+            proposed_experiment=None,  # no proposed experiment in GP fit
+            ax=gp_ax,
+            title=f"Iteration {round_idx + 1}",
+            ylabel="Reaction rate [U mL$^{-1}$]" if col == 0 else None,
+            xlabel=None,
+            show_legend=False,  # Only show legend once
+        )
+
+        # Acquisition function plot
+        plot_acquisition_function(
+            acquisition_fn=acquisition_fns[round_idx],
+            candidates=candidates_per_round[round_idx],
+            bounds=bounds,
+            ax=acq_ax,
+            ylabel="Acquisition function" if col == 0 else None,
+            xlabel="pH [-]",
             show_legend=False,
         )
+
+    matplotlib.pyplot.tight_layout()
+    fig.align_ylabels(axes[:, 0])
+    fig.align_ylabels(axes[:, 1])
 
     matplotlib.pyplot.show()
