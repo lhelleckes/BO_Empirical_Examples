@@ -19,6 +19,7 @@ class Colors:
     dark_red = numpy.array((122, 25, 24)) / 255
     dark_blue = numpy.array((0, 0, 255)) / 255
     alt_blue = numpy.array((59, 117, 175)) / 255
+    light_gray = numpy.array((179, 179, 179)) / 255
     lavender = "#E6E6FA"
     magnolia = "#F4F0F7"
     gray = "#4D4D4D"
@@ -30,6 +31,11 @@ class Colors:
     orange = "#FF8430"
     blue = "#3083DC"
     black = "k"
+    floral = "#AE6EC4"
+    red = "red"
+    purple = "purple"
+
+custom_cmap = matplotlib.colors.LinearSegmentedColormap.from_list("review-blend", ["#FFEBFE", "#52004E"])
 
 
 matplotlib.rcParams["text.color"] = Colors.gray
