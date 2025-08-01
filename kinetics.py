@@ -1,7 +1,6 @@
 import typing
-import numpy
 
-import typing
+import numpy
 
 
 def ratkowsky_curve(

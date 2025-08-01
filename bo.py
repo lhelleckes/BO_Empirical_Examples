@@ -83,9 +83,7 @@ def generate_noisy_observations(
     negative_indices = y_noisy < 0
     if numpy.any(negative_indices):
         rng = numpy.random.default_rng(seed)  # Modern RNG
-        replacement_values = rng.normal(
-            loc=0, scale=sigma_0, size=numpy.sum(negative_indices)
-        )
+        replacement_values = rng.normal(loc=0, scale=sigma_0, size=numpy.sum(negative_indices))
         y_noisy[negative_indices] = numpy.abs(replacement_values)
 
     return y_noisy
@@ -124,9 +122,7 @@ def generate_sobol_points(
     else:
         points = sobol_gen.random(n=num_points)
 
-    scaled_points = scipy.stats.qmc.scale(
-        points, l_bounds=range_min, u_bounds=range_max
-    )
+    scaled_points = scipy.stats.qmc.scale(points, l_bounds=range_min, u_bounds=range_max)
 
     if dimensions == 1:
         return scaled_points.flatten()
@@ -319,9 +315,7 @@ def perform_bo(
         if method == "EI":
             best_f = train_y.max().item()
             bounds_tensor = torch.tensor(bounds, dtype=torch.double).view(2, -1)
-            acquisition_fn = botorch.acquisition.ExpectedImprovement(
-                model=gp_model, best_f=best_f
-            )
+            acquisition_fn = botorch.acquisition.ExpectedImprovement(model=gp_model, best_f=best_f)
 
             # Optimize acquisition function
             candidates, vals = botorch.optim.optimize_acqf(

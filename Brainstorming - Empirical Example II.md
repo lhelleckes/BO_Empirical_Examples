@@ -13,7 +13,7 @@
 
 
 + initial experimental designs with __space filling regime__ plus __log-transformation__ (2nd design parameter could be concentration)
-+ KPI should be relatable / straight forward 
++ KPI should be relatable / straight forward
 + __experiments conducted with MTP__, highlighting effects / key points such as
     + batch effect
     + column-wise time delay during pipetting
@@ -23,13 +23,13 @@
 
 ## Story Points
 + goal: maximize rate constant
-+ available data: time series :point_right: product concentration (heteroskedatic noise), 
++ available data: time series :point_right: product concentration (heteroskedatic noise),
 + Naive approach following best practices in empirical example I
     + linearize timeseries :point_right: rate constants
     + appropriate choices for GP initialization (kernel selection, ls priors, etc.)
     + :point_right: GP fits great, histogram with TS proposals is counterintuitive
 + Surrogate model only as good as we allow it to be
-+ discuss 
++ discuss
 
 ### Key Figures
 + comparison of naive GP w/ TS proposals and Bayesian process model powered GP
