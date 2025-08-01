@@ -12,3 +12,4 @@ pre-commit:
   only:
     - main
     - merge_requests
+
