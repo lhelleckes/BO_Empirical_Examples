@@ -35,7 +35,10 @@ class Colors:
     red = "red"
     purple = "purple"
 
-custom_cmap = matplotlib.colors.LinearSegmentedColormap.from_list("review-blend", ["#FFEBFE", "#52004E"])
+
+custom_cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+    "review-blend", ["#FFEBFE", "#52004E"]
+)
 
 
 matplotlib.rcParams["text.color"] = Colors.gray
