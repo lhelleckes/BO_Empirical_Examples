@@ -5,7 +5,10 @@ pre-commit:
   image: python:3.11
   stage: lint
   before_script:
-    - pip install pre-commit
-    - pre-commit install
+    - python -m pip install --upgrade pip
+    - pip install pre-commit mypy black isort ruff
   script:
     - pre-commit run --all
+  only:
+    - main
+    - merge_requests
