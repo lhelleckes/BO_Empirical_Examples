@@ -2,8 +2,8 @@
 
 [![DOI](https://zenodo.org/badge/placeholder.svg)](https://zenodo.org/doi/10.5281/zenodo.xxxxxxxx)
 
-Accompanying repository for the review manuscript  
-**"A Guide to Bayesian Optimization in Bioprocess Engineering"**  
+Accompanying repository for the review manuscript
+**"A Guide to Bayesian Optimization in Bioprocess Engineering"**
 by Maximilian Siska, Emma Pajak, Katrin Rosenthal, Eric von Lieres, Antonio del Rio
 Chanona and Laura Marie Helleckes.
 
@@ -48,10 +48,10 @@ The `paper_figures/` folder contains all figures used in the review, including:
 
 ## License
 
-This repository is licensed under the [GNU Affero General Public License v3.0](https://github.com/lhelleckes/BO_Empirical_Examples/blob/main/LICENSE.md).  
+This repository is licensed under the [GNU Affero General Public License v3.0](https://github.com/lhelleckes/BO_Empirical_Examples/blob/main/LICENSE.md).
 You are free to use, modify, and distribute the material, provided that derivative works are also shared under the same license.
 
 ## Citation
 
-To cite this repository or reuse its content in your own work, please refer to the latest release:  
+To cite this repository or reuse its content in your own work, please refer to the latest release:
 ➡ [Zenodo Link](https://doi.org/10.5281/zenodo.xxxxxxxx)
