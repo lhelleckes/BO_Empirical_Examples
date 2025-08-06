@@ -1,6 +1,6 @@
 # BO_Empirical_Examples
 
-[![DOI](https://zenodo.org/badge/placeholder.svg)](https://zenodo.org/doi/10.5281/zenodo.xxxxxxxx)
+[![DOI](https://zenodo.org/badge/889050540.svg)](https://doi.org/10.5281/zenodo.16755806)
 
 Accompanying repository for the review manuscript
 **"A Guide to Bayesian Optimization in Bioprocess Engineering"**
@@ -54,4 +54,4 @@ You are free to use, modify, and distribute the material, provided that derivati
 ## Citation
 
 To cite this repository or reuse its content in your own work, please refer to the latest release:
-➡ [Zenodo Link](https://doi.org/10.5281/zenodo.xxxxxxxx)
+➡ [Zenodo Link](https://doi.org/10.5281/zenodo.16755806)
