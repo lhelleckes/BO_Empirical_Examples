@@ -8,7 +8,7 @@ import torch
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.priors import LogNormalPrior
 
-from kinetics import enzyme_truth, symmetric_noise
+from bo_examples.kinetics import enzyme_truth, symmetric_noise
 
 
 def generate_noisy_observations(

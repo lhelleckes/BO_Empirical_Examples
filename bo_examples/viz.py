@@ -6,8 +6,8 @@ import numpy
 import torch
 from botorch.acquisition import LogExpectedImprovement
 
-from bo import generate_noisy_observations
-from kinetics import enzyme_truth, symmetric_noise
+from bo_examples.bo import generate_noisy_observations
+from bo_examples.kinetics import enzyme_truth, symmetric_noise
 
 matplotlib.rcParams["font.sans-serif"] = "Arial"
 matplotlib.rcParams["font.family"] = "sans-serif"
