@@ -1,3 +1,43 @@
+[project]
+name = "bo-examples"
+version = "0.1.0"
+description = "Python package accompanying the manuscript \"A Guide to Bayesian Optimization in Bioprocess Engineering\""
+readme = "README.md"
+authors = [
+    {name = "Laura Marie Helleckes", email = "l.helleckes@imperial.ac.uk"},
+    {name = "Maximilian Siska", email = "m.siska@fz-juelich.de"},
+    {name = "Emma Pajak", email = "emma.pajak19@imperial.ac.uk"}
+]
+classifiers = [
+    "Programming Language :: Python",
+            "Operating System :: OS Independent",
+            "Programming Language :: Python :: 3.8",
+            "Programming Language :: Python :: 3.9",
+            "Programming Language :: Python :: 3.10",
+            "Programming Language :: Python :: 3.11",
+            "Intended Audience :: Science/Research",
+            "License :: OSI Approved :: GNU Affero General Public License v3",
+]
+dependencies = [
+    "botorch==0.14.0",
+    "graphviz",
+    "jupyter",
+    "matplotlib",
+    "numpy",
+    "pymc==5.24.0",
+    "pyrff",
+    "scipy==1.15.2",
+    "scikit-learn",
+
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"bo_examples" = "bo_examples"}
+
 [tool.black]
 line-length = 100
 
