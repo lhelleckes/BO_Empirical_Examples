@@ -19,14 +19,14 @@ classifiers = [
             "License :: OSI Approved :: GNU Affero General Public License v3",
 ]
 dependencies = [
-    "botorch",
+    "botorch==0.14.0",
     "graphviz",
     "jupyter",
     "matplotlib",
     "numpy",
-    "pymc",
+    "pymc==5.24.0",
     "pyrff",
-    "scipy",
+    "scipy==1.15.2",
     "scikit-learn",
 
 ]
